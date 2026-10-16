@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Do not run code between createServerClient and auth.getUser() —
+  // Do not run code between createServerClient and auth.getUser() --
   // it makes sessions randomly drop.
   const {
     data: { user },
@@ -44,13 +44,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // /retest/<token> and its grading API authenticate via the single-use token,
-  // so they must be reachable without a login session.
+  // The emailed re-test link is /retest/<token>. That landing page and the
+  // route behind its Start button must work logged out, because they are what
+  // creates the session. Everything else under /retest (the check itself) and
+  // grading at /api/retest need a login.
   const isPublic =
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth') ||
-    pathname.startsWith('/retest') ||
-    pathname.startsWith('/api/retest');
+    /^\/retest\/[^/]+\/?$/.test(pathname) ||
+    pathname === '/api/retest/start';
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -70,7 +72,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Static assets (including lesson media) skip the session check entirely —
+  // Static assets (including lesson media) skip the session check entirely --
   // otherwise a <video src> would be redirected to /login instead of streaming.
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|sample-videos|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4|webm|m4v|mp3|vtt)$).*)',

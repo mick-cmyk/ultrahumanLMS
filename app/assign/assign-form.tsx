@@ -1,19 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { STATES, levelLabel, type Unit } from '@/lib/units';
 
 type Course = { id: string; title: string; published: boolean };
-type Org = { id: string; name: string };
-type Store = { id: string; name: string; state: string; org_id: string };
+type TreeUnit = Unit & { depth: number };
 type User = {
   id: string;
   full_name: string | null;
   email: string;
-  org_id: string | null;
-  store_id: string | null;
+  unit_id: string | null;
 };
-
-const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
 // Toggle a value's membership in a Set (returns a new Set).
 function toggle<T>(set: Set<T>, value: T): Set<T> {
@@ -25,20 +22,17 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
 
 export function AssignForm({
   courses,
-  orgs,
-  stores,
+  units,
   users,
 }: {
   courses: Course[];
-  orgs: Org[];
-  stores: Store[];
+  units: TreeUnit[];
   users: User[];
 }) {
   const [courseId, setCourseId] = useState('');
   const [everyone, setEveryone] = useState(false);
-  const [orgIds, setOrgIds] = useState<Set<string>>(new Set());
+  const [unitIds, setUnitIds] = useState<Set<string>>(new Set());
   const [states, setStates] = useState<Set<string>>(new Set());
-  const [storeIds, setStoreIds] = useState<Set<string>>(new Set());
   const [includeIds, setIncludeIds] = useState<Set<string>>(new Set());
   const [excludeIds, setExcludeIds] = useState<Set<string>>(new Set());
   const [label, setLabel] = useState('');
@@ -50,27 +44,19 @@ export function AssignForm({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Stores available to pick: constrained to chosen orgs (if any).
-  const visibleStores = useMemo(
-    () => (orgIds.size === 0 ? stores : stores.filter((s) => orgIds.has(s.org_id))),
-    [stores, orgIds]
-  );
-
   const rule = useMemo(
     () => ({
       all: everyone,
-      org_ids: everyone ? [] : [...orgIds],
+      unit_ids: everyone ? [] : [...unitIds],
       states: everyone ? [] : [...states],
-      store_ids: everyone ? [] : [...storeIds],
       include_user_ids: [...includeIds],
       exclude_user_ids: [...excludeIds],
     }),
-    [everyone, orgIds, states, storeIds, includeIds, excludeIds]
+    [everyone, unitIds, states, includeIds, excludeIds]
   );
 
   const ruleKey = JSON.stringify(rule);
-  const hasTarget =
-    everyone || orgIds.size > 0 || includeIds.size > 0;
+  const hasTarget = everyone || unitIds.size > 0 || includeIds.size > 0;
 
   // Live reach, debounced.
   useEffect(() => {
@@ -99,10 +85,7 @@ export function AssignForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruleKey, hasTarget]);
 
-  const userById = useMemo(
-    () => new Map(users.map((u) => [u.id, u])),
-    [users]
-  );
+  const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -110,8 +93,7 @@ export function AssignForm({
     return users
       .filter(
         (u) =>
-          (u.full_name ?? '').toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
+          (u.full_name ?? '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
       )
       .slice(0, 8);
   }, [search, users]);
@@ -123,7 +105,7 @@ export function AssignForm({
       return;
     }
     if (!hasTarget) {
-      setErrorMsg('Add at least one target (everyone, an org, or an individual).');
+      setErrorMsg('Add at least one target (everyone, a unit, or an individual).');
       setSaveStatus('error');
       return;
     }
@@ -160,7 +142,6 @@ export function AssignForm({
 
   return (
     <div className="space-y-6">
-      {/* Course */}
       <label className="block max-w-md">
         <span className="mb-1 block text-sm font-medium">Course</span>
         <select
@@ -168,7 +149,7 @@ export function AssignForm({
           onChange={(e) => setCourseId(e.target.value)}
           className="w-full rounded border border-gray-300 px-3 py-2"
         >
-          <option value="">Choose a course…</option>
+          <option value="">Choose a course...</option>
           {courses.map((c) => (
             <option key={c.id} value={c.id}>
               {c.title}
@@ -178,37 +159,36 @@ export function AssignForm({
         </select>
       </label>
 
-      {/* Everyone */}
       <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={everyone}
-          onChange={(e) => setEveryone(e.target.checked)}
-        />
+        <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} />
         <span className="font-medium">Everyone</span>
         <span className="text-sm text-gray-500">(ignores the filters below)</span>
       </label>
 
       {!everyone && (
         <div className="grid gap-6 md:grid-cols-3">
-          <Facet
-            title="Orgs"
-            onAll={() => setOrgIds(new Set(orgs.map((o) => o.id)))}
-            onNone={() => setOrgIds(new Set())}
-          >
-            {orgs.map((o) => (
-              <Check
-                key={o.id}
-                label={o.name}
-                checked={orgIds.has(o.id)}
-                onChange={() => setOrgIds((s) => toggle(s, o.id))}
-              />
-            ))}
-          </Facet>
+          <div className="md:col-span-2">
+            <Facet
+              title="Where"
+              hint="Ticking a unit includes everyone beneath it"
+              onAll={() => setUnitIds(new Set(units.map((u) => u.id)))}
+              onNone={() => setUnitIds(new Set())}
+            >
+              {units.map((u) => (
+                <div key={u.id} style={{ paddingLeft: `${u.depth * 1.25}rem` }}>
+                  <Check
+                    label={`${u.name} (${levelLabel(u.kind)})`}
+                    checked={unitIds.has(u.id)}
+                    onChange={() => setUnitIds((s) => toggle(s, u.id))}
+                  />
+                </div>
+              ))}
+            </Facet>
+          </div>
 
           <Facet
             title="States"
-            hint="Filters stores within matched orgs"
+            hint="Narrows the units to those in these states"
             onAll={() => setStates(new Set(STATES))}
             onNone={() => setStates(new Set())}
           >
@@ -221,32 +201,15 @@ export function AssignForm({
               />
             ))}
           </Facet>
-
-          <Facet
-            title="Stores"
-            hint={orgIds.size ? 'Within chosen orgs' : 'Choose orgs to narrow'}
-            onAll={() => setStoreIds(new Set(visibleStores.map((s) => s.id)))}
-            onNone={() => setStoreIds(new Set())}
-          >
-            {visibleStores.map((s) => (
-              <Check
-                key={s.id}
-                label={`${s.name} (${s.state})`}
-                checked={storeIds.has(s.id)}
-                onChange={() => setStoreIds((set) => toggle(set, s.id))}
-              />
-            ))}
-          </Facet>
         </div>
       )}
 
-      {/* Individuals */}
       <div className="space-y-2">
         <span className="text-sm font-medium">Individuals</span>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search people to include or exclude…"
+          placeholder="Search people to include or exclude..."
           className="w-full max-w-md rounded border border-gray-300 px-3 py-2"
         />
         {searchResults.length > 0 && (
@@ -254,8 +217,7 @@ export function AssignForm({
             {searchResults.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-2 p-2 text-sm">
                 <span>
-                  {u.full_name ?? u.email}{' '}
-                  <span className="text-gray-400">{u.email}</span>
+                  {u.full_name ?? u.email} <span className="text-gray-400">{u.email}</span>
                 </span>
                 <span className="flex gap-1">
                   <button
@@ -317,14 +279,13 @@ export function AssignForm({
         />
       </div>
 
-      {/* Meta */}
       <div className="flex flex-wrap gap-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Label (optional)</span>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. JB VIC+NSW"
+            placeholder="e.g. Victoria stores"
             className="rounded border border-gray-300 px-3 py-2"
           />
         </label>
@@ -341,11 +302,10 @@ export function AssignForm({
         </label>
       </div>
 
-      {/* Reach + save */}
       <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 pt-4">
         <p className="text-lg">
           {reachLoading ? (
-            <span className="text-gray-400">Counting…</span>
+            <span className="text-gray-400">Counting...</span>
           ) : reach === null ? (
             <span className="text-red-600">Couldn&apos;t work out the reach</span>
           ) : (
@@ -363,13 +323,13 @@ export function AssignForm({
           disabled={saveStatus === 'saving'}
           className="ml-auto rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50"
         >
-          {saveStatus === 'saving' ? 'Saving…' : 'Save assignment'}
+          {saveStatus === 'saving' ? 'Saving...' : 'Save assignment'}
         </button>
       </div>
 
       {saveStatus === 'saved' && (
         <p className="rounded bg-green-50 p-3 text-sm text-green-800">
-          Assignment saved. It takes effect immediately — matching staff will see
+          Assignment saved. It takes effect immediately. Matching staff will see
           the course next time they open their training.
         </p>
       )}
@@ -407,7 +367,7 @@ function Facet({
         </span>
       </div>
       {hint && <p className="text-xs text-gray-400">{hint}</p>}
-      <div className="max-h-56 space-y-1 overflow-y-auto rounded border border-gray-200 p-2">
+      <div className="max-h-64 space-y-1 overflow-y-auto rounded border border-gray-200 p-2">
         {children}
       </div>
     </div>

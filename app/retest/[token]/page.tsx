@@ -1,49 +1,62 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { RetestPlayer } from './retest-player';
-import { RETEST_QUESTION_COUNT } from '@/lib/constants';
+import { StartButton } from './start-button';
 
-type BuiltQuestion = { id: string; text: string; options: string[]; lesson_id: string };
+// Landing page for the emailed re-test link. Reading this page changes
+// nothing: it never spends the token or logs anyone in. Mail scanners and link
+// previews fetch URLs, so the session is only created when a person presses
+// Start, which posts to /api/retest/start.
+const STOPPED: Record<string, string> = {
+  not_found: "This re-test link isn't valid. It may have been mistyped.",
+  used: 'This link has already been used. Log in to carry on.',
+  expired: 'This re-test link has expired. Log in and check your training for the latest one.',
+  already_passed: "You've already passed this re-test. You're all set.",
+  inactive: 'This account is switched off. Ask your manager.',
+  not_learner: 'This link is for staff training only. Use the login page.',
+};
 
-// No-login re-test, reached from the email deep link. The token authenticates
-// this single re-test session only (spec). We build the question set here and
-// hand it to the player; grading happens through /api/retest with the token.
-export default async function RetestPage({
+export default async function RetestLandingPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc('build_retest', {
-    p_token: token,
-    p_count: RETEST_QUESTION_COUNT,
-  });
 
-  const invalidCopy: Record<string, string> = {
-    not_found: "This re-test link isn't valid. It may have been mistyped.",
-    used: 'This re-test has already been completed. Nice work — nothing more to do.',
-    expired: 'This re-test link has expired. You&apos;ll get a fresh one soon.',
-    already_passed: "You've already passed this re-test. You're all set.",
-  };
+  // Already logged in on this device? Skip the button and go straight in.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect('/retest');
 
-  if (error || !data || !data.valid) {
-    const reason = (data?.reason as string) ?? 'not_found';
+  const service = createServiceClient();
+  const { data: check } = await service.rpc('check_retest_token', { p_token: token });
+
+  if (!check?.valid) {
+    const reason = (check?.reason as string) ?? 'not_found';
     return (
       <div className="mx-auto max-w-lg space-y-3 py-6">
         <h1 className="text-xl font-semibold">Re-test</h1>
         <p className="rounded border border-gray-200 bg-gray-50 p-4 text-gray-700">
-          {invalidCopy[reason] ?? invalidCopy.not_found}
+          {STOPPED[reason] ?? STOPPED.not_found}
         </p>
+        <Link href="/login" className="text-sm underline">
+          Go to the login page
+        </Link>
       </div>
     );
   }
 
   return (
-    <RetestPlayer
-      token={token}
-      moduleTitle={data.module_title as string}
-      courseTitle={data.course_title as string}
-      questions={data.questions as BuiltQuestion[]}
-    />
+    <div className="mx-auto max-w-lg space-y-4 py-6">
+      <h1 className="text-xl font-semibold">Your quick check is ready</h1>
+      <p className="text-gray-600">
+        A few questions to lock in what you learned. It takes about two minutes
+        and you do not need to log in.
+      </p>
+      <StartButton token={token} />
+    </div>
   );
 }

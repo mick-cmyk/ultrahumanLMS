@@ -2,64 +2,81 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { levelLabel, type Unit } from '@/lib/units';
 
-type Role = 'learner' | 'manager' | 'coordinator' | 'admin';
+type Role = 'learner' | 'viewer' | 'manager' | 'admin';
 type User = {
   id: string;
   full_name: string | null;
   email: string;
   role: Role;
   active: boolean;
-  org_id: string | null;
-  store_id: string | null;
+  unit_id: string | null;
 };
-type Org = { id: string; name: string };
-type Store = { id: string; name: string; state: string; org_id: string };
+type TreeUnit = Unit & { depth: number };
+type Scope = { user_id: string; unit_id: string };
 
-const ROLES: Role[] = ['learner', 'manager', 'coordinator', 'admin'];
+const ROLES: Role[] = ['learner', 'viewer', 'manager', 'admin'];
+const ROLE_HELP: Record<Role, string> = {
+  learner: 'Does the training',
+  viewer: 'Reads reports for the units chosen',
+  manager: 'Reports, plus adds and removes staff in the units chosen',
+  admin: 'Everything',
+};
 
 export function PeopleClient({
+  me,
   users,
-  orgs,
-  stores,
+  units,
+  scopes,
 }: {
+  me: string;
   users: User[];
-  orgs: Org[];
-  stores: Store[];
+  units: TreeUnit[];
+  scopes: Scope[];
 }) {
   const router = useRouter();
-  const [orgFilter, setOrgFilter] = useState('');
-  const [stateFilter, setStateFilter] = useState('');
-  const [storeFilter, setStoreFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [csv, setCsv] = useState('');
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
+  const [error, setError] = useState('');
 
-  const orgName = useMemo(() => new Map(orgs.map((o) => [o.id, o.name])), [orgs]);
-  const storeById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
-
-  const storesForState = useMemo(
-    () => (stateFilter ? stores.filter((s) => s.state === stateFilter) : stores),
-    [stores, stateFilter]
-  );
+  const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
+  const scopesByUser = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const s of scopes) m.set(s.user_id, [...(m.get(s.user_id) ?? []), s.unit_id]);
+    return m;
+  }, [scopes]);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
       if (!showInactive && !u.active) return false;
-      if (orgFilter && u.org_id !== orgFilter) return false;
-      if (storeFilter && u.store_id !== storeFilter) return false;
-      if (stateFilter) {
-        const st = u.store_id ? storeById.get(u.store_id) : undefined;
-        if (!st || st.state !== stateFilter) return false;
+      if (roleFilter && u.role !== roleFilter) return false;
+      if (unitFilter) {
+        const unit = u.unit_id ? unitById.get(u.unit_id) : undefined;
+        // A unit filter includes everything beneath it.
+        if (!unit || !unit.path.includes(unitFilter)) return false;
       }
       return true;
     });
-  }, [users, showInactive, orgFilter, storeFilter, stateFilter, storeById]);
+  }, [users, showInactive, roleFilter, unitFilter, unitById]);
 
-  async function update(id: string, patch: { active?: boolean; role?: Role }) {
+  async function update(
+    id: string,
+    patch: {
+      active?: boolean;
+      role?: Role;
+      unit_id?: string | null;
+      add_scope?: string;
+      remove_scope?: string;
+    }
+  ) {
     setBusyId(id);
+    setError('');
     try {
       const res = await fetch('/api/people/update', {
         method: 'POST',
@@ -67,6 +84,10 @@ export function PeopleClient({
         body: JSON.stringify({ id, ...patch }),
       });
       if (res.ok) router.refresh();
+      else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? 'Could not save that change.');
+      }
     } finally {
       setBusyId(null);
     }
@@ -92,9 +113,7 @@ export function PeopleClient({
               .map((f: { email: string; error: string }) => `${f.email}: ${f.error}`)
               .join('; ')}).`
           : '';
-      setImportMsg(
-        `Imported: ${body.created} created, ${body.updated} updated.${failedNote}`
-      );
+      setImportMsg(`Imported: ${body.created} created, ${body.updated} updated.${failedNote}`);
       setCsv('');
       router.refresh();
     } catch {
@@ -104,21 +123,31 @@ export function PeopleClient({
     }
   }
 
+  const unitOption = (u: TreeUnit) => (
+    <option key={u.id} value={u.id}>
+      {'  '.repeat(u.depth)}
+      {u.name} ({levelLabel(u.kind)})
+    </option>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Import */}
+      {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
       <details className="rounded border border-gray-200 p-4">
         <summary className="cursor-pointer font-medium">Import from CSV</summary>
         <div className="mt-3 space-y-2">
           <p className="text-sm text-gray-600">
-            Columns: <code>email, full_name, store</code>. Re-importing an email
-            updates that person rather than duplicating them.
+            Columns: <code>email, full_name, unit</code>. The unit is the name
+            shown on the Structure page. Re-importing an email moves and
+            updates that person rather than duplicating them. Roles are never
+            changed by an import.
           </p>
           <textarea
             value={csv}
             onChange={(e) => setCsv(e.target.value)}
             rows={5}
-            placeholder={'email,full_name,store\njo@example.com,Jo Blogs,JB Hi-Fi Chadstone'}
+            placeholder={'email,full_name,unit\njo@example.com,Jo Blogs,Chadstone'}
             className="w-full rounded border border-gray-300 p-2 font-mono text-sm"
           />
           <button
@@ -126,58 +155,35 @@ export function PeopleClient({
             disabled={importing || !csv.trim()}
             className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {importing ? 'Importing…' : 'Import'}
+            {importing ? 'Importing...' : 'Import'}
           </button>
           {importMsg && <p className="text-sm text-gray-700">{importMsg}</p>}
         </div>
       </details>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
-          <span className="mb-1 block text-gray-500">Org</span>
+          <span className="mb-1 block text-gray-500">Where</span>
           <select
-            value={orgFilter}
-            onChange={(e) => setOrgFilter(e.target.value)}
+            value={unitFilter}
+            onChange={(e) => setUnitFilter(e.target.value)}
             className="rounded border border-gray-300 px-2 py-1.5"
           >
-            <option value="">All orgs</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
+            <option value="">Everywhere</option>
+            {units.map(unitOption)}
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-gray-500">State</span>
+          <span className="mb-1 block text-gray-500">Role</span>
           <select
-            value={stateFilter}
-            onChange={(e) => {
-              setStateFilter(e.target.value);
-              setStoreFilter('');
-            }}
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
             className="rounded border border-gray-300 px-2 py-1.5"
           >
-            <option value="">All states</option>
-            {[...new Set(stores.map((s) => s.state))].sort().map((st) => (
-              <option key={st} value={st}>
-                {st}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-gray-500">Store</span>
-          <select
-            value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
-            className="rounded border border-gray-300 px-2 py-1.5"
-          >
-            <option value="">All stores</option>
-            {storesForState.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+            <option value="">All roles</option>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
               </option>
             ))}
           </select>
@@ -193,37 +199,45 @@ export function PeopleClient({
         <span className="ml-auto text-sm text-gray-500">{filtered.length} people</span>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-500">
               <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Org / Store</th>
+              <th className="py-2 pr-4">Where</th>
               <th className="py-2 pr-4">Role</th>
               <th className="py-2 pr-4">Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((u) => {
-              const store = u.store_id ? storeById.get(u.store_id) : undefined;
+              const mine = scopesByUser.get(u.id) ?? [];
+              const usesScope = u.role === 'viewer' || u.role === 'manager';
               return (
                 <tr
                   key={u.id}
-                  className={`border-b border-gray-100 ${u.active ? '' : 'text-gray-400'}`}
+                  className={`border-b border-gray-100 align-top ${u.active ? '' : 'text-gray-400'}`}
                 >
-                  <td className="py-2 pr-4">{u.full_name ?? '—'}</td>
+                  <td className="py-2 pr-4">{u.full_name ?? '-'}</td>
                   <td className="py-2 pr-4">{u.email}</td>
                   <td className="py-2 pr-4">
-                    {u.org_id ? orgName.get(u.org_id) : '—'}
-                    {store ? ` · ${store.name}` : ''}
+                    <select
+                      value={u.unit_id ?? ''}
+                      disabled={busyId === u.id}
+                      onChange={(e) => update(u.id, { unit_id: e.target.value || null })}
+                      className="max-w-[14rem] rounded border border-gray-300 px-2 py-1"
+                    >
+                      <option value="">Not placed</option>
+                      {units.map(unitOption)}
+                    </select>
                   </td>
                   <td className="py-2 pr-4">
                     <select
                       value={u.role}
-                      disabled={busyId === u.id}
+                      disabled={busyId === u.id || u.id === me}
                       onChange={(e) => update(u.id, { role: e.target.value as Role })}
+                      title={ROLE_HELP[u.role]}
                       className="rounded border border-gray-300 px-2 py-1"
                     >
                       {ROLES.map((r) => (
@@ -232,11 +246,43 @@ export function PeopleClient({
                         </option>
                       ))}
                     </select>
+                    {usesScope && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-xs text-gray-500">Can see:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {mine.map((unitId) => (
+                            <button
+                              key={unitId}
+                              onClick={() => update(u.id, { remove_scope: unitId })}
+                              disabled={busyId === u.id}
+                              title="Remove"
+                              className="rounded-full border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50"
+                            >
+                              {unitById.get(unitId)?.name ?? unitId} ✕
+                            </button>
+                          ))}
+                          {mine.length === 0 && (
+                            <span className="text-xs text-amber-700">
+                              Nothing yet, so they see no one.
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          value=""
+                          disabled={busyId === u.id}
+                          onChange={(e) => e.target.value && update(u.id, { add_scope: e.target.value })}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs"
+                        >
+                          <option value="">Add a unit...</option>
+                          {units.filter((x) => !mine.includes(x.id)).map(unitOption)}
+                        </select>
+                      </div>
+                    )}
                   </td>
                   <td className="py-2 pr-4">
                     <button
                       onClick={() => update(u.id, { active: !u.active })}
-                      disabled={busyId === u.id}
+                      disabled={busyId === u.id || u.id === me}
                       className={`rounded border px-2 py-1 text-xs ${
                         u.active
                           ? 'border-gray-300 hover:bg-gray-50'

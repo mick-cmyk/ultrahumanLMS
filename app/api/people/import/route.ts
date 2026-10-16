@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getProfile } from '@/lib/auth';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createClient } from '@/lib/supabase/server';
 import { provisionUser, parseCsv } from '@/lib/provision';
 
-// CSV import (admin + manager). Columns: email, full_name, store.
-// Admin: store name resolves to any store. Manager: forced to their own store,
-// the store column is ignored. Upserts on email.
+// CSV import for admins and managers. Columns: email, full_name, unit.
+// `unit` is the unit's name as it appears on the Structure page. If two units
+// share a name inside the caller's scope the row is refused rather than
+// guessed. A manager's units are limited to their own scope; the database
+// decides that (can_provision_email), not this route.
 export async function POST(request: Request) {
   const profile = await getProfile();
   if (!profile) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -24,16 +26,24 @@ export async function POST(request: Request) {
   }
 
   const rows = parseCsv(csv);
-  if (rows.length === 0) {
-    return NextResponse.json({ error: 'No data rows found' }, { status: 400 });
+  if (rows.length === 0) return NextResponse.json({ error: 'No data rows found' }, { status: 400 });
+  if (rows.length > 500) {
+    return NextResponse.json({ error: 'Import up to 500 people at a time' }, { status: 400 });
   }
 
-  // Store name → { id, org_id } lookup (service role reads all stores).
-  const service = createServiceClient();
-  const { data: stores } = await service.from('stores').select('id, name, org_id');
-  const storeByName = new Map(
-    (stores ?? []).map((s) => [s.name.trim().toLowerCase(), s])
-  );
+  // Units the caller can see (RLS limits this to their part of the tree).
+  const supabase = await createClient();
+  const { data: units, error: unitErr } = await supabase
+    .from('units')
+    .select('id, name')
+    .eq('active', true);
+  if (unitErr) return NextResponse.json({ error: unitErr.message }, { status: 400 });
+
+  const byName = new Map<string, string[]>();
+  for (const u of units ?? []) {
+    const key = u.name.trim().toLowerCase();
+    byName.set(key, [...(byName.get(key) ?? []), u.id]);
+  }
 
   const results: { email: string; ok: boolean; created?: boolean; error?: string }[] = [];
 
@@ -45,37 +55,29 @@ export async function POST(request: Request) {
       continue;
     }
 
-    let orgId: string | null;
-    let storeId: string | null;
+    const unitName = (r.unit ?? r.store ?? '').trim().toLowerCase();
+    const matches = unitName ? (byName.get(unitName) ?? []) : [];
+    if (matches.length === 0) {
+      results.push({ email, ok: false, error: `unknown unit "${r.unit ?? r.store ?? ''}"` });
+      continue;
+    }
+    if (matches.length > 1) {
+      results.push({ email, ok: false, error: `"${r.unit ?? r.store}" matches more than one unit` });
+      continue;
+    }
+    const unitId = matches[0];
 
-    if (profile.role === 'manager') {
-      // Managers can only add to their own store/org.
-      orgId = profile.org_id;
-      storeId = profile.store_id;
-    } else {
-      const storeName = (r.store ?? '').trim().toLowerCase();
-      if (storeName) {
-        const store = storeByName.get(storeName);
-        if (!store) {
-          results.push({ email, ok: false, error: `unknown store "${r.store}"` });
-          continue;
-        }
-        orgId = store.org_id;
-        storeId = store.id;
-      } else {
-        orgId = null;
-        storeId = null;
-      }
+    const { data: allowed, error: checkErr } = await supabase.rpc('can_provision_email', {
+      p_email: email,
+      p_unit: unitId,
+    });
+    if (checkErr || !allowed) {
+      results.push({ email, ok: false, error: 'not allowed to add this person here' });
+      continue;
     }
 
     try {
-      const { created } = await provisionUser({
-        email,
-        full_name: fullName,
-        org_id: orgId,
-        store_id: storeId,
-        role: 'learner',
-      });
+      const { created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
       results.push({ email, ok: true, created });
     } catch (e) {
       results.push({ email, ok: false, error: e instanceof Error ? e.message : 'failed' });

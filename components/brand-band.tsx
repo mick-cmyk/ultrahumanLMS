@@ -1,6 +1,6 @@
-// A slim branded header band for an org — logo + name, with an optional accent
-// colour bar. Renders nothing when the user has no org. Uses a plain <img> so
-// any logo URL works without next/image remote-host config.
+// A slim branded header band for the user's retail brand: logo + name, with an
+// accent colour bar. Renders nothing when there is no branding to show. Uses a
+// plain <img> so any logo URL works without next/image remote-host config.
 export type OrgBrand = {
   name: string | null;
   logo_url: string | null;
@@ -18,7 +18,7 @@ export function BrandBand({ org }: { org: OrgBrand }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={org.logo_url}
-            alt={org.name ?? 'Organisation logo'}
+            alt={org.name ?? 'Brand logo'}
             className="h-8 max-w-[160px] object-contain"
           />
         ) : (

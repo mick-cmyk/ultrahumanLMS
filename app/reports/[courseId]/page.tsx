@@ -2,26 +2,29 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { levelLabel } from '@/lib/units';
 
+type Ancestor = { id: string; name: string; kind: string; depth: number };
 type Row = {
   user_id: string;
   email: string;
   full_name: string | null;
-  org_id: string | null;
-  org_name: string | null;
-  store_id: string | null;
-  store_name: string | null;
+  unit_id: string | null;
+  unit_name: string | null;
   state: string | null;
+  ancestors: Ancestor[];
   completed: boolean;
   retention_verified: boolean;
 };
 
 type Agg = { key: string; label: string; assigned: number; completed: number; verified: number };
 
-function groupBy(rows: Row[], keyFn: (r: Row) => [string, string]): Agg[] {
+function groupBy(rows: Row[], keyFn: (r: Row) => [string, string] | null): Agg[] {
   const map = new Map<string, Agg>();
   for (const r of rows) {
-    const [key, label] = keyFn(r);
+    const k = keyFn(r);
+    if (!k) continue;
+    const [key, label] = k;
     const a = map.get(key) ?? { key, label, assigned: 0, completed: 0, verified: 0 };
     a.assigned++;
     if (r.completed) a.completed++;
@@ -68,7 +71,7 @@ export default async function CourseReportPage({
   params: Promise<{ courseId: string }>;
 }) {
   const { courseId } = await params;
-  await requireRole(['admin', 'coordinator', 'manager']);
+  await requireRole(['admin', 'viewer', 'manager']);
   const supabase = await createClient();
 
   const [{ data: course }, { data, error }] = await Promise.all([
@@ -80,9 +83,25 @@ export default async function CourseReportPage({
   if (error) throw new Error(`Failed to load report: ${error.message}`);
   const rows = (data ?? []) as Row[];
 
-  const byOrg = groupBy(rows, (r) => [r.org_id ?? 'none', r.org_name ?? 'No org']);
-  const byState = groupBy(rows, (r) => [r.state ?? 'none', r.state ?? 'No state']);
-  const byStore = groupBy(rows, (r) => [r.store_id ?? 'none', r.store_name ?? 'No store']);
+  // One table per level that appears in the data, top to bottom. The top of
+  // the tree (the supplier) is one big group, so it is skipped. A level is
+  // identified by the kind of the unit at that depth.
+  const levels = new Map<number, string>();
+  for (const r of rows) {
+    for (const a of r.ancestors) {
+      if (a.depth >= 1 && !levels.has(a.depth)) levels.set(a.depth, a.kind);
+    }
+  }
+  const levelTables = [...levels.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([depth, kind]) => ({
+      title: `By ${levelLabel(kind).toLowerCase()}`,
+      rows: groupBy(rows, (r) => {
+        const a = r.ancestors.find((x) => x.depth === depth);
+        return a ? [a.id, a.name] : null;
+      }),
+    }));
+  const byState = groupBy(rows, (r) => (r.state ? [r.state, r.state] : null));
 
   return (
     <div className="space-y-6">
@@ -112,9 +131,10 @@ export default async function CourseReportPage({
         </p>
       )}
 
-      <GroupTable title="By org" rows={byOrg} />
+      {levelTables.map((t) => (
+        <GroupTable key={t.title} title={t.title} rows={t.rows} />
+      ))}
       <GroupTable title="By state" rows={byState} />
-      <GroupTable title="By store" rows={byStore} />
 
       <section className="space-y-2">
         <h2 className="font-medium text-gray-700">By person</h2>
@@ -123,7 +143,7 @@ export default async function CourseReportPage({
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-500">
                 <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Store</th>
+                <th className="py-2 pr-4">Where</th>
                 <th className="py-2 pr-4">Completed</th>
                 <th className="py-2 pr-4">Retention-verified</th>
               </tr>
@@ -131,13 +151,13 @@ export default async function CourseReportPage({
             <tbody>
               {rows
                 .slice()
-                .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? ''))
+                .sort((a, b) => (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email))
                 .map((r) => (
                   <tr key={r.user_id} className="border-b border-gray-100">
                     <td className="py-2 pr-4">{r.full_name ?? r.email}</td>
-                    <td className="py-2 pr-4">{r.store_name ?? r.org_name ?? '—'}</td>
-                    <td className="py-2 pr-4">{r.completed ? '✓' : '—'}</td>
-                    <td className="py-2 pr-4">{r.retention_verified ? '✓' : '—'}</td>
+                    <td className="py-2 pr-4">{r.unit_name ?? '-'}</td>
+                    <td className="py-2 pr-4">{r.completed ? '✓' : '-'}</td>
+                    <td className="py-2 pr-4">{r.retention_verified ? '✓' : '-'}</td>
                   </tr>
                 ))}
               {rows.length === 0 && (

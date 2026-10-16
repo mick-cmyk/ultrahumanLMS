@@ -5,9 +5,9 @@ import { toCsv } from '@/lib/csv';
 type Row = {
   full_name: string | null;
   email: string;
-  org_name: string | null;
-  store_name: string | null;
+  unit_name: string | null;
   state: string | null;
+  ancestors: { name: string; depth: number }[];
   completed: boolean;
   retention_verified: boolean;
 };
@@ -18,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   const { courseId } = await params;
-  await requireRole(['admin', 'coordinator', 'manager']);
+  await requireRole(['admin', 'viewer', 'manager']);
   const supabase = await createClient();
 
   const [{ data: course }, { data, error }] = await Promise.all([
@@ -31,12 +31,15 @@ export async function GET(
 
   const rows = (data ?? []) as Row[];
   const csv = toCsv(
-    ['Name', 'Email', 'Org', 'Store', 'State', 'Completed', 'Retention-verified'],
+    ['Name', 'Email', 'Unit', 'Path', 'State', 'Completed', 'Retention-verified'],
     rows.map((r) => [
       r.full_name ?? '',
       r.email,
-      r.org_name ?? '',
-      r.store_name ?? '',
+      r.unit_name ?? '',
+      r.ancestors
+        .filter((a) => a.depth >= 1)
+        .map((a) => a.name)
+        .join(' > '),
       r.state ?? '',
       r.completed ? 'yes' : 'no',
       r.retention_verified ? 'yes' : 'no',

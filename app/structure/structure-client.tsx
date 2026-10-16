@@ -2,25 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_LEVEL_LABELS, STATES, levelLabel, type Unit } from '@/lib/units';
 
-type Group = { id: string; name: string };
-type Org = {
-  id: string;
-  name: string;
-  type: string;
-  group_id: string | null;
-  logo_url: string | null;
-  brand_color: string | null;
-};
-type Store = {
-  id: string;
-  name: string;
-  state: string;
-  suburb: string | null;
-  org_id: string;
-};
+type TreeUnit = Unit & { depth: number };
 
-const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+const KINDS = Object.keys(DEFAULT_LEVEL_LABELS);
 
 async function post(body: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch('/api/structure', {
@@ -33,286 +19,223 @@ async function post(body: unknown): Promise<{ ok: boolean; error?: string }> {
 }
 
 export function StructureClient({
-  groups,
-  orgs,
-  stores,
+  units,
+  counts,
 }: {
-  groups: Group[];
-  orgs: Org[];
-  stores: Store[];
+  units: TreeUnit[];
+  counts: Record<string, number>;
 }) {
   const router = useRouter();
   const [error, setError] = useState('');
-
-  // New-entity form state.
-  const [newGroup, setNewGroup] = useState('');
-  const [newOrg, setNewOrg] = useState({ name: '', type: 'retailer', group_id: '' });
-  const [newStore, setNewStore] = useState({ name: '', state: 'VIC', suburb: '', org_id: '' });
+  const hasRoot = units.some((u) => u.parent_id === null);
+  const [form, setForm] = useState({
+    name: '',
+    kind: hasRoot ? 'brand' : 'supplier',
+    parent_id: '',
+    state: '',
+    suburb: '',
+  });
 
   async function run(body: unknown) {
     setError('');
     const { ok, error } = await post(body);
     if (!ok) setError(error ?? 'Something went wrong.');
     else router.refresh();
+    return ok;
   }
 
-  const groupName = (id: string | null) =>
-    id ? (groups.find((g) => g.id === id)?.name ?? '—') : 'Direct (no group)';
+  const update = (id: string, values: Record<string, unknown>) =>
+    run({ action: 'update', id, values });
+
+  async function add() {
+    if (!form.name.trim()) {
+      setError('Give it a name.');
+      return;
+    }
+    if (hasRoot && !form.parent_id) {
+      setError('Choose where it sits.');
+      return;
+    }
+    const ok = await run({
+      action: 'create',
+      values: {
+        name: form.name,
+        kind: form.kind,
+        parent_id: form.parent_id,
+        state: form.state,
+        suburb: form.suburb,
+      },
+    });
+    if (ok) setForm({ ...form, name: '', suburb: '' });
+  }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      {/* Groups */}
-      <section className="space-y-2">
-        <h2 className="font-medium">Groups</h2>
-        <ul className="divide-y divide-gray-100 rounded border border-gray-200">
-          {groups.map((g) => (
-            <li key={g.id} className="flex items-center gap-2 p-2">
-              <input
-                defaultValue={g.name}
-                onBlur={(e) =>
-                  e.target.value !== g.name &&
-                  run({ action: 'update', entity: 'group', id: g.id, values: { name: e.target.value } })
-                }
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
-              />
-            </li>
-          ))}
-          {groups.length === 0 && <li className="p-2 text-sm text-gray-500">No groups yet.</li>}
-        </ul>
-        <div className="flex gap-2">
-          <input
-            value={newGroup}
-            onChange={(e) => setNewGroup(e.target.value)}
-            placeholder="New group name"
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
-          />
-          <button
-            onClick={async () => {
-              if (!newGroup.trim()) return;
-              await run({ action: 'create', entity: 'group', values: { name: newGroup } });
-              setNewGroup('');
-            }}
-            className="rounded bg-gray-900 px-3 py-1 text-sm text-white"
-          >
-            Add group
-          </button>
-        </div>
-      </section>
-
-      {/* Orgs */}
-      <section className="space-y-2">
-        <h2 className="font-medium">Orgs</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Group</th>
-                <th className="py-2 pr-4">Branding</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orgs.map((o) => (
-                <tr key={o.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-4">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 text-left text-gray-500">
+              <th className="py-2 pr-4">Name</th>
+              <th className="py-2 pr-4">Level</th>
+              <th className="py-2 pr-4">State</th>
+              <th className="py-2 pr-4">Moves under</th>
+              <th className="py-2 pr-4">Branding</th>
+              <th className="py-2 pr-4">People</th>
+              <th className="py-2 pr-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {units.map((u) => (
+              <tr
+                key={u.id}
+                className={`border-b border-gray-100 ${u.active ? '' : 'text-gray-400'}`}
+              >
+                <td className="py-2 pr-4" style={{ paddingLeft: `${u.depth * 1.25}rem` }}>
+                  <input
+                    defaultValue={u.name}
+                    onBlur={(e) =>
+                      e.target.value.trim() &&
+                      e.target.value !== u.name &&
+                      update(u.id, { name: e.target.value })
+                    }
+                    className="rounded border border-gray-300 px-2 py-1"
+                  />
+                </td>
+                <td className="py-2 pr-4">
+                  <select
+                    defaultValue={u.kind}
+                    onChange={(e) => update(u.id, { kind: e.target.value })}
+                    className="rounded border border-gray-300 px-2 py-1"
+                  >
+                    {KINDS.map((k) => (
+                      <option key={k} value={k}>
+                        {levelLabel(k)}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2 pr-4">
+                  <select
+                    defaultValue={u.state ?? ''}
+                    onChange={(e) => update(u.id, { state: e.target.value })}
+                    className="rounded border border-gray-300 px-2 py-1"
+                  >
+                    <option value="">None</option>
+                    {STATES.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2 pr-4">
+                  {u.parent_id === null ? (
+                    <span className="text-gray-400">Top</span>
+                  ) : (
+                    <select
+                      defaultValue={u.parent_id}
+                      onChange={(e) => update(u.id, { parent_id: e.target.value })}
+                      className="max-w-[12rem] rounded border border-gray-300 px-2 py-1"
+                    >
+                      {units
+                        .filter((p) => p.id !== u.id && !p.path.includes(u.id))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {'  '.repeat(p.depth)}
+                            {p.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                </td>
+                <td className="py-2 pr-4">
+                  <div className="flex items-center gap-2">
                     <input
-                      defaultValue={o.name}
+                      defaultValue={u.logo_url ?? ''}
+                      placeholder="Logo URL"
                       onBlur={(e) =>
-                        e.target.value !== o.name &&
-                        run({ action: 'update', entity: 'org', id: o.id, values: { name: e.target.value } })
+                        (e.target.value || null) !== (u.logo_url ?? null) &&
+                        update(u.id, { logo_url: e.target.value })
                       }
-                      className="rounded border border-gray-300 px-2 py-1"
+                      className="w-32 rounded border border-gray-300 px-2 py-1"
                     />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      defaultValue={o.type}
-                      onChange={(e) =>
-                        run({ action: 'update', entity: 'org', id: o.id, values: { type: e.target.value } })
+                    <input
+                      type="color"
+                      defaultValue={u.brand_color ?? '#111827'}
+                      title="Brand colour"
+                      onBlur={(e) =>
+                        e.target.value !== (u.brand_color ?? '#111827') &&
+                        update(u.id, { brand_color: e.target.value })
                       }
-                      className="rounded border border-gray-300 px-2 py-1"
-                    >
-                      <option value="retailer">retailer</option>
-                      <option value="client">client</option>
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      defaultValue={o.group_id ?? ''}
-                      onChange={(e) =>
-                        run({
-                          action: 'update',
-                          entity: 'org',
-                          id: o.id,
-                          values: { group_id: e.target.value },
-                        })
-                      }
-                      className="rounded border border-gray-300 px-2 py-1"
-                    >
-                      <option value="">Direct (no group)</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        defaultValue={o.logo_url ?? ''}
-                        placeholder="Logo URL"
-                        onBlur={(e) =>
-                          (e.target.value || null) !== o.logo_url &&
-                          run({ action: 'update', entity: 'org', id: o.id, values: { logo_url: e.target.value } })
-                        }
-                        className="w-40 rounded border border-gray-300 px-2 py-1"
-                      />
-                      <input
-                        type="color"
-                        defaultValue={o.brand_color ?? '#111827'}
-                        title="Brand colour"
-                        onBlur={(e) =>
-                          e.target.value !== o.brand_color &&
-                          run({ action: 'update', entity: 'org', id: o.id, values: { brand_color: e.target.value } })
-                        }
-                        className="h-8 w-10 rounded border border-gray-300"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {orgs.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-3 text-gray-500">
-                    No orgs yet. Add one below.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      className="h-8 w-10 rounded border border-gray-300"
+                    />
+                  </div>
+                </td>
+                <td className="py-2 pr-4 text-gray-500">{counts[u.id] ?? 0}</td>
+                <td className="py-2 pr-4">
+                  <button
+                    onClick={() => update(u.id, { active: !u.active })}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+                  >
+                    {u.active ? 'Switch off' : 'Switch on'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {units.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-3 text-gray-500">
+                  Nothing here yet. Add your supplier first.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <section className="space-y-2">
+        <h2 className="font-medium">Add a unit</h2>
         <div className="flex flex-wrap gap-2">
           <input
-            value={newOrg.name}
-            onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value })}
-            placeholder="New org name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Name"
             className="rounded border border-gray-300 px-2 py-1 text-sm"
           />
           <select
-            value={newOrg.type}
-            onChange={(e) => setNewOrg({ ...newOrg, type: e.target.value })}
+            value={form.kind}
+            onChange={(e) => setForm({ ...form, kind: e.target.value })}
             className="rounded border border-gray-300 px-2 py-1 text-sm"
           >
-            <option value="retailer">retailer</option>
-            <option value="client">client</option>
-          </select>
-          <select
-            value={newOrg.group_id}
-            onChange={(e) => setNewOrg({ ...newOrg, group_id: e.target.value })}
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
-          >
-            <option value="">Direct (no group)</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
+            {KINDS.map((k) => (
+              <option key={k} value={k}>
+                {levelLabel(k)}
               </option>
             ))}
           </select>
-          <button
-            onClick={async () => {
-              if (!newOrg.name.trim()) return;
-              await run({ action: 'create', entity: 'org', values: newOrg });
-              setNewOrg({ name: '', type: 'retailer', group_id: '' });
-            }}
-            className="rounded bg-gray-900 px-3 py-1 text-sm text-white"
-          >
-            Add org
-          </button>
-        </div>
-      </section>
-
-      {/* Stores */}
-      <section className="space-y-2">
-        <h2 className="font-medium">Stores</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">State</th>
-                <th className="py-2 pr-4">Suburb</th>
-                <th className="py-2 pr-4">Org</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stores.map((s) => (
-                <tr key={s.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-4">
-                    <input
-                      defaultValue={s.name}
-                      onBlur={(e) =>
-                        e.target.value !== s.name &&
-                        run({ action: 'update', entity: 'store', id: s.id, values: { name: e.target.value } })
-                      }
-                      className="rounded border border-gray-300 px-2 py-1"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      defaultValue={s.state}
-                      onChange={(e) =>
-                        run({ action: 'update', entity: 'store', id: s.id, values: { state: e.target.value } })
-                      }
-                      className="rounded border border-gray-300 px-2 py-1"
-                    >
-                      {STATES.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <input
-                      defaultValue={s.suburb ?? ''}
-                      onBlur={(e) =>
-                        (e.target.value || null) !== s.suburb &&
-                        run({ action: 'update', entity: 'store', id: s.id, values: { suburb: e.target.value } })
-                      }
-                      className="rounded border border-gray-300 px-2 py-1"
-                    />
-                  </td>
-                  <td className="py-2 pr-4 text-gray-500">
-                    {orgs.find((o) => o.id === s.org_id)?.name ?? '—'}
-                  </td>
-                </tr>
+          {hasRoot && (
+            <select
+              value={form.parent_id}
+              onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
+              className="max-w-[14rem] rounded border border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="">Sits under...</option>
+              {units.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {'  '.repeat(p.depth)}
+                  {p.name}
+                </option>
               ))}
-              {stores.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-3 text-gray-500">
-                    No stores yet. Add one below.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={newStore.name}
-            onChange={(e) => setNewStore({ ...newStore, name: e.target.value })}
-            placeholder="New store name"
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
-          />
+            </select>
+          )}
           <select
-            value={newStore.state}
-            onChange={(e) => setNewStore({ ...newStore, state: e.target.value })}
+            value={form.state}
+            onChange={(e) => setForm({ ...form, state: e.target.value })}
             className="rounded border border-gray-300 px-2 py-1 text-sm"
           >
+            <option value="">State (optional)</option>
             {STATES.map((st) => (
               <option key={st} value={st}>
                 {st}
@@ -320,37 +243,19 @@ export function StructureClient({
             ))}
           </select>
           <input
-            value={newStore.suburb}
-            onChange={(e) => setNewStore({ ...newStore, suburb: e.target.value })}
-            placeholder="Suburb"
+            value={form.suburb}
+            onChange={(e) => setForm({ ...form, suburb: e.target.value })}
+            placeholder="Suburb (optional)"
             className="rounded border border-gray-300 px-2 py-1 text-sm"
           />
-          <select
-            value={newStore.org_id}
-            onChange={(e) => setNewStore({ ...newStore, org_id: e.target.value })}
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
-          >
-            <option value="">Choose org…</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={async () => {
-              if (!newStore.name.trim() || !newStore.org_id) {
-                setError('A store needs a name and an org.');
-                return;
-              }
-              await run({ action: 'create', entity: 'store', values: newStore });
-              setNewStore({ name: '', state: 'VIC', suburb: '', org_id: '' });
-            }}
-            className="rounded bg-gray-900 px-3 py-1 text-sm text-white"
-          >
-            Add store
+          <button onClick={add} className="rounded bg-gray-900 px-3 py-1 text-sm text-white">
+            Add
           </button>
         </div>
+        <p className="text-xs text-gray-500">
+          The first unit you add is the top of the tree. Every other unit needs
+          a parent.
+        </p>
       </section>
     </div>
   );

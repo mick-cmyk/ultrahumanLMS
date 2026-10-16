@@ -1,44 +1,61 @@
 import { NextResponse } from 'next/server';
 import { getProfile } from '@/lib/auth';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createClient } from '@/lib/supabase/server';
 import { provisionUser } from '@/lib/provision';
 
-// Manager self-serve staff management, scoped to their store/org.
-//   action 'add'        → { email, full_name } creates/updates a learner in the
-//                         manager's store.
-//   action 'deactivate' → { id } soft-deletes, but only someone in scope.
-// Runs as service role after verifying the caller is a manager and the target
-// is within their store/org.
+// Self-serve staff management for managers (and admins).
+//   action 'add'        { email, full_name, unit_id }  add or move a person
+//   action 'deactivate' { id }
+//   action 'reactivate' { id }
+//
+// Authorisation is done by the database, as the logged-in user:
+//   can_provision_email(email, unit)  may this person be placed in this unit?
+//   set_user_active(id, flag)         may this person be switched on or off?
+// The service role is only used afterwards to create the login.
 export async function POST(request: Request) {
   const profile = await getProfile();
   if (!profile) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  if (profile.role !== 'manager') {
+  if (profile.role !== 'manager' && profile.role !== 'admin') {
     return NextResponse.json({ error: 'Managers only' }, { status: 403 });
   }
 
-  let body: { action?: string; email?: string; full_name?: string; id?: string; active?: boolean };
+  let body: {
+    action?: string;
+    email?: string;
+    full_name?: string;
+    unit_id?: string;
+    id?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const service = createServiceClient();
+  const supabase = await createClient();
 
   if (body.action === 'add') {
     const email = (body.email ?? '').trim();
     const fullName = (body.full_name ?? '').trim();
-    if (!email || !fullName) {
-      return NextResponse.json({ error: 'email and name are required' }, { status: 400 });
+    const unitId = body.unit_id ?? '';
+    if (!email || !fullName || !unitId) {
+      return NextResponse.json({ error: 'name, email and unit are required' }, { status: 400 });
     }
+
+    const { data: allowed, error: checkErr } = await supabase.rpc('can_provision_email', {
+      p_email: email,
+      p_unit: unitId,
+    });
+    if (checkErr) return NextResponse.json({ error: checkErr.message }, { status: 400 });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'You cannot add that person to that place. They may already belong to someone else.' },
+        { status: 403 }
+      );
+    }
+
     try {
-      const { created } = await provisionUser({
-        email,
-        full_name: fullName,
-        org_id: profile.org_id,
-        store_id: profile.store_id,
-        role: 'learner',
-      });
+      const { created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
       return NextResponse.json({ ok: true, created });
     } catch (e) {
       return NextResponse.json(
@@ -50,26 +67,14 @@ export async function POST(request: Request) {
 
   if (body.action === 'deactivate' || body.action === 'reactivate') {
     if (!body.id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
-
-    // Confirm the target is within the manager's scope before touching them.
-    const { data: target } = await service
-      .from('users')
-      .select('id, org_id, store_id')
-      .eq('id', body.id)
-      .maybeSingle();
-    const inScope =
-      target &&
-      target.org_id === profile.org_id &&
-      (profile.store_id === null || target.store_id === profile.store_id);
-    if (!inScope) {
-      return NextResponse.json({ error: 'That person is not in your store' }, { status: 403 });
+    const { error } = await supabase.rpc('set_user_active', {
+      p_target: body.id,
+      p_active: body.action === 'reactivate',
+    });
+    if (error) {
+      const status = /not allowed/i.test(error.message) ? 403 : 400;
+      return NextResponse.json({ error: error.message }, { status });
     }
-
-    const { error } = await service
-      .from('users')
-      .update({ active: body.action === 'reactivate' })
-      .eq('id', body.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
 

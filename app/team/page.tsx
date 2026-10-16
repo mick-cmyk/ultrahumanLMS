@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { orderTree, unitPathLabel, type Unit } from '@/lib/units';
 import { TeamClient } from './team-client';
 
 type Summary = {
@@ -15,17 +16,37 @@ export default async function TeamPage() {
   const profile = await requireRole(['manager']);
   const supabase = await createClient();
 
-  const [{ data: staff }, { data: summary }] = await Promise.all([
-    // RLS scopes this to the manager's store/org.
-    supabase
-      .from('users')
-      .select('id, full_name, email, role, active, store_id')
-      .order('full_name'),
-    supabase.rpc('report_courses_summary'),
-  ]);
+  const [{ data: staff }, { data: summary }, { data: units }, { data: scopes }] =
+    await Promise.all([
+      // Row level security scopes this to the manager's part of the tree.
+      supabase
+        .from('users')
+        .select('id, full_name, email, role, active, unit_id')
+        .order('full_name'),
+      supabase.rpc('report_courses_summary'),
+      supabase.from('units').select('id, parent_id, kind, name, state, suburb, path, active'),
+      supabase.from('user_scopes').select('unit_id').eq('user_id', profile.id),
+    ]);
+
+  const allUnits = (units ?? []) as Unit[];
+  const byId = new Map(allUnits.map((u) => [u.id, u]));
+
+  // Places this manager can add people to: their scope units and everything
+  // below them. (The database re-checks on every add.)
+  const scopeIds = new Set((scopes ?? []).map((s) => s.unit_id));
+  const placeable = orderTree(
+    allUnits.filter((u) => u.active && u.path.some((id) => scopeIds.has(id)))
+  );
 
   // Exclude the manager themselves from the staff list.
-  const team = (staff ?? []).filter((u) => u.id !== profile.id);
+  const team = (staff ?? [])
+    .filter((u) => u.id !== profile.id)
+    .map((u) => ({
+      ...u,
+      unit_label: u.unit_id && byId.get(u.unit_id)
+        ? unitPathLabel(byId.get(u.unit_id)!, byId) || byId.get(u.unit_id)!.name
+        : '',
+    }));
   const rows = (summary ?? []) as Summary[];
 
   return (
@@ -38,14 +59,15 @@ export default async function TeamPage() {
         </p>
       </div>
 
-      <TeamClient staff={team} />
+      <TeamClient
+        staff={team}
+        places={placeable.map((u) => ({ id: u.id, name: u.name, kind: u.kind, depth: u.depth }))}
+      />
 
       <section className="space-y-3">
         <h2 className="font-medium">Team progress</h2>
         {rows.length === 0 && (
-          <p className="text-sm text-gray-600">
-            No courses assigned to your team yet.
-          </p>
+          <p className="text-sm text-gray-600">No courses assigned to your team yet.</p>
         )}
         {rows.map((r) => (
           <Link
@@ -56,8 +78,8 @@ export default async function TeamPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="font-medium underline">{r.title}</span>
               <span className="text-gray-600">
-                {r.assigned} assigned · {r.completed} completed ·{' '}
-                {r.retention_verified} retention-verified
+                {r.assigned} assigned · {r.completed} completed · {r.retention_verified}{' '}
+                retention-verified
               </span>
             </div>
           </Link>
