@@ -109,8 +109,17 @@ Tokyo). Local Docker was abandoned. Production should be a fresh project in
 5. **Bunny Stream keys** once real videos exist.
 6. **Vercel deploy**, then set `APP_URL` and Supabase Auth redirect URLs to it.
 7. Housekeeping: rename the Supabase project, retire the old free project
-   `mmtaqhznxctcthpawrtk`. The repo is **not a git repo yet** — worth `git init`
-   before anyone starts changing things.
+   `mmtaqhznxctcthpawrtk`. Git is local only — push to GitHub for an off-machine
+   backup.
+
+## 6a. Version control
+
+Git repo on branch `main`. Baseline save point: **`182e764`**
+("Save point: Phases 1-4 complete…"). `.env.local` is ignored — never commit it.
+Binary files (PDF, MP4, ZIP, images) are marked in `.gitattributes`.
+
+Roll everything back to the baseline: `git reset --hard 182e764`.
+Commit after each self-contained improvement so changes can be undone one at a time.
 
 ## 7. Gotchas that cost real time
 
