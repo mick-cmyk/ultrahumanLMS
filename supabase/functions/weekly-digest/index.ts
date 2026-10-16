@@ -77,7 +77,12 @@ function composeBlocks(name: string | null, rows: SummaryRow[]): EmailBlock[] {
 }
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET && req.headers.get('x-cron-secret') !== CRON_SECRET) {
+  // Fail closed (see retest-dispatch): no secret configured means no access.
+  if (!CRON_SECRET) {
+    console.error('[weekly-digest] CRON_SECRET is not set; refusing to run');
+    return new Response('CRON_SECRET not configured', { status: 500 });
+  }
+  if (req.headers.get('x-cron-secret') !== CRON_SECRET) {
     return new Response('Forbidden', { status: 403 });
   }
 

@@ -7,7 +7,7 @@
 //   2. Reminders:  re-tests sent 3+ days ago and still untouched get one
 //      follow-up email, then stop. Two emails max per cycle.
 //
-// Invoked in production by pg_cron via pg_net (see the cron migration). Guard
+// Invoked in production by pg_cron via pg_net (see the cron migration). Guarded
 // with the CRON_SECRET header so nothing else can trigger it.
 //
 // Email goes via Resend when RESEND_API_KEY is set; otherwise it logs the link
@@ -225,11 +225,15 @@ async function dispatchReminders() {
 }
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET) {
-    const provided = req.headers.get('x-cron-secret');
-    if (provided !== CRON_SECRET) {
-      return new Response('Forbidden', { status: 403 });
-    }
+  // Fail closed: this function is deployed with verify_jwt = false so pg_net
+  // can call it, which makes the shared secret the only gate. No secret
+  // configured means nobody gets in, not everybody.
+  if (!CRON_SECRET) {
+    console.error('[retest-dispatch] CRON_SECRET is not set; refusing to run');
+    return new Response('CRON_SECRET not configured', { status: 500 });
+  }
+  if (req.headers.get('x-cron-secret') !== CRON_SECRET) {
+    return new Response('Forbidden', { status: 403 });
   }
 
   try {
