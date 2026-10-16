@@ -83,7 +83,7 @@ live on it. The pilot will run at **`lms.kenshu.com.au`**. Full detail in
 - Resend email isn't set up yet (steps in `docs/EMAIL-SETUP.md`).
 - Bunny video keys and the service role key aren't filled in.
 
-So focus on the code, design and copy; anything needing the live database, flag
-it for me rather than working around it.
+The live database is reconnected, but please don't change data or schema on it
+without asking me first.
 
 Thanks!
