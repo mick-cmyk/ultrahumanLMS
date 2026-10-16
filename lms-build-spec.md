@@ -1,5 +1,7 @@
 # P1xel Forge LMS — Build Spec
 
+> **Superseded in part (17 Oct 2026).** The groups/orgs/stores layers and the "groups layer stays" decision are replaced by the single unit tree in `docs/DESIGN-v2.md`. Where this spec and DESIGN-v2 disagree, DESIGN-v2 wins. Do not reintroduce groups.
+
 **v1 — July 2026**
 
 ## What this is

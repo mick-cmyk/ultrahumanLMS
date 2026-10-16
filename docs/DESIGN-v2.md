@@ -24,7 +24,7 @@ units
   id, parent_id (null = the supplier root, one per deployment)
   kind        text   -- brand-defined label key, e.g. supplier | retail_brand | region | store
   name, state (only meaningful on stores), suburb
-  path        ltree  -- maintained by trigger, GiST indexed
+  path        uuid[] -- ancestor ids root-first, maintained by trigger
   active, demo_tag
 ```
 

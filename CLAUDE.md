@@ -1,61 +1,44 @@
-# CLAUDE.md — P1xel Forge LMS
+# CLAUDE.md: Retail training LMS
 
-## Source of truth
+Staff watch short videos, pass a quiz, then prove they still know it with a re-test a few days later. Brand-agnostic: each brand gets its own Supabase project and Vercel project, with colours, name, links and email voice set by configuration. First deployment is the Kenshu demo (`lms.kenshu.com.au`); UltraHuman follows.
 
-`lms-build-spec.md` in the repo root. Read it before doing anything. If code and spec disagree, the spec wins. If the spec is genuinely ambiguous, ask — don't invent.
+`docs/DESIGN-v2.md` describes the model. `docs/HANDOVER.md` is the current status. `lms-build-spec.md` is the original spec; where it disagrees with DESIGN-v2 (groups layer, org/store tables, ltree), DESIGN-v2 wins. The path column is `uuid[]`, not ltree.
 
-Do **not** relitigate anything in the spec's "Decisions already made" or "Resolved" sections. Magic links only. Rules not snapshots. Soft deletes. jsonb questions. Bunny Stream. Groups layer is in v1.
+## The model in one paragraph
 
-## Current phase
+One `units` tree per deployment: supplier (root) > Level 1 retail brand > Level 2 training manager or state rep > Level 3 store manager, with floor staff attached to exactly one unit. Staff can also hang directly off the supplier with no middle man. Roles: learner, viewer (read-only reporting), manager (manages staff in their branch), admin (supplier staff; the only role that assigns courses). Viewers and managers are scoped by `user_scopes(user_id, unit_id)` and see their unit plus everything below it.
 
-**Phase 1 only.** Do not build quiz players, re-test logic, cron jobs, assignment UI, or reporting dashboards — those are Phases 2–3. If a task seems to need them, stop and flag it.
+## Rules that must not be broken
 
-Phase 1 scope, in order:
-1. Full schema as Supabase migration files (all tables from the spec, including Phase 2 tables — schema is cheap, build it once)
-2. `auth.users` → `public.users` mirror trigger
-3. `user_matches_rule(user_id uuid, rule jsonb)` Postgres function
-4. Tests for the rule function against seed data (see `LMS Build Out/seed.ts`)
-5. RLS policies on every table, calling the rule function where relevant
-6. Magic link login page
-7. "My training" page (courses via rule resolution)
-8. Lesson page: Bunny embed with signed token + seen-seconds watch tracking → API route → `lesson_progress`
+- **Assignment rules** are `{all, unit_ids[], states[], include_user_ids[], exclude_user_ids[]}` and are evaluated only by the Postgres function `user_matches_rule`. Never reimplement it in TypeScript. Rules match by unit, not role, so managers inside a targeted unit are assigned too. The states filter uses the state on the user's own unit, so stores need `state` set.
+- **Authorisation lives in the database.** Security-definer functions use `auth.uid()` and run as the caller. The service role key is used only to create logins (`lib/provision.ts`), validate re-test tokens and run CLI scripts. Never change an existing user's role when re-provisioning them.
+- **Privileges are an allowlist** (`20261017001000_lockdown.sql`). New tables and functions get no grants by default. Internal functions are service-role only. No write grants on `lesson_progress`, `retests`, `retest_tokens`.
+- **Magic links only.** No password UI. Re-test emails open a landing page with a Start button; only the POST to `/api/retest/start` issues a session (mail scanners prefetch GETs).
+- **Watch tracking** counts unique seconds seen, at least 90% of duration. The server keeps `greatest(existing, incoming)`, so scrubbing to the end never counts.
+- **No em dashes** in UI copy or email. Australian English, plain language. The readers are retail staff.
+- Schema changes are migration files in `supabase/migrations/`. Never instruct dashboard changes.
 
-Phase 1 is done when a seed user can log in on a phone, see only their courses, watch a video, and `lesson_progress.watched_at` gets stamped when they cross 90% unique seconds watched.
+## Demo data
 
-## Stack and conventions
+Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `app_settings.environment` is `demo` or `production` (default production) and the database refuses demo rows in production.
 
-- Next.js App Router, TypeScript, deployed on Vercel
-- Supabase: Postgres, Auth (magic link only — never build password UI), RLS on from the first migration
-- All schema changes via migration files in `supabase/migrations/`. Never instruct dashboard changes.
-- Server components + route handlers by default; client components only where interaction demands it
-- Supabase clients: `@supabase/ssr` pattern — server client in server contexts, browser client in client components. Service role key only in `LMS Build Out/` scripts and route handlers that verify admin role first — never shipped to the browser.
-- Australian English in all UI copy. Plain language — the users are retail staff, not developers.
-- Keep UI unstyled-but-tidy in Phase 1. Tailwind, no component libraries yet. Polish is Phase 4.
+- `npm run seed:load -- --mark-demo` builds the Kenshu demo tree, staff, course, assignments and progress (flips a brand-new database to demo mode).
+- `npm run seed:purge` deletes everything the seed created.
+- `npm run admin:bootstrap -- --email x --name "Y" --supplier "Z"` creates the first real admin.
+- `npm run golive:check [-- --finish]` fails while any demo row exists; `--finish` switches the database to production.
 
-## Rule resolution — the one thing to get right
+Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat.
 
-`user_matches_rule` is called by course visibility, RLS, reporting, and (later) the re-test cron. Build it once as a Postgres function, test it hard, and never reimplement the logic in TypeScript. Resolution order (from the spec):
+## Scheduled jobs
 
-1. `exclude_user_ids` → no match, stop
-2. `include_user_ids` → match, stop
-3. `all: true` → match
-4. org_id ∈ org_ids AND (states empty OR store's state ∈ states) AND (store_ids empty OR store_id ∈ store_ids) → match
-5. otherwise no match
-
-Empty arrays mean "no filter at that level", not "match nothing". A user matches a course if **any** assignment rule for it matches.
-
-## Watch tracking — the other thing to get right
-
-"Watched" = cumulative **unique seconds** seen ≥ 90% of duration. Client keeps a Set of seen second-indices from player timeupdate events; posts `watch_pct` throttled (every 10s + on pause/unload). Server stores `GREATEST(existing, incoming)` — watch_pct never decreases. Scrubbing to the end must not count.
+Hourly pg_cron calls two edge functions; they act only in the Sydney send window (8am for four hours, `SEND_START_HOUR` and `SEND_WINDOW_HOURS`). `retest-dispatch` sends due re-tests (7-day token) and one reminder after 3 days. `weekly-digest` acts Mondays and claims the ISO week via `claim_job_run`, so it sends once a week. Both fail closed without `CRON_SECRET`.
 
 ## Testing
 
-- Rule function: pgTAP or plain SQL assertions run against seeded local db — every case in the spec, especially exclude-beats-include and empty-array semantics
-- Run `supabase db reset` (migrations + seed) as the standard way to get a clean local state
-- Before claiming any Phase 1 task done, verify it as a seed user, not as service role
+- Database tests: `supabase/tests/*.test.sql`, run inside `begin; ... rollback;`. Old tests are in `supabase/tests_archive/`, old migrations in `supabase/migrations_archive/`.
+- `npm run typecheck` before every commit.
+- Verify features as a real role (learner, viewer, manager, admin), not as the service role.
 
-## Commands
+## Conventions
 
-- `npm run dev` — Next.js locally
-- `supabase start` / `supabase db reset` — local db with migrations + seed
-- `npm run seed` — runs `"LMS Build Out/seed.ts"` against the local instance (needs `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`). Note: the folder name has a space, so the package.json script must quote the path, e.g. `tsx "LMS Build Out/seed.ts"`.
+Next.js 16 App Router, TypeScript, Tailwind v4. Middleware is `proxy.ts`. Server components and route handlers by default. Supabase clients via `@supabase/ssr`. Commit trailer: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
