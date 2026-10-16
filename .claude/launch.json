@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lms-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "playlist-ripper",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\mick\\Music\\playlist-rips\\server.js"],
+      "port": 3111
+    }
+  ]
+}

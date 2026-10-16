@@ -1,0 +1,39 @@
+{
+  "name": "p1xel-forge-lms",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "seed": "tsx --env-file=.env.local \"LMS Build Out/seed.ts\"",
+    "test:db": "supabase test db",
+    "email:preview": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
+    "email:send": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
+    "email:deploy": "supabase functions deploy retest-dispatch weekly-digest"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.110.2",
+    "next": "^16.2.10",
+    "player.js": "^0.1.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.5.19",
+    "supabase": "^2.109.1",
+    "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "sharp@0.34.5": true
+  }
+}

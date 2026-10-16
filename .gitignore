@@ -1,0 +1,25 @@
+# dependencies & build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+# supabase local state
+supabase/.temp/
+supabase/.branches/
+
+# generated
+LMS Build Out/email-previews/
+
+# local tool state
+.claude/settings.local.json
+.vercel/
+*.log
+.DS_Store
+Thumbs.db
