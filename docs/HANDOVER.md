@@ -112,6 +112,59 @@ Tokyo). Local Docker was abandoned. Production should be a fresh project in
    `mmtaqhznxctcthpawrtk`. Git is local only — push to GitHub for an off-machine
    backup.
 
+## 6b. Domain and brand — Kenshu (added 17 Oct 2026)
+
+The LMS will trade as **Kenshu** (研修, Japanese for "training"). Mick owns
+**kenshu.com.au**, and there is already a marketing site live on it.
+
+**Pilot / demo URL: `lms.kenshu.com.au`.** Set it up in this order, and lock
+steps 2 and 3 **before any magic link goes out** (links built against the wrong
+URL are painful to unwind):
+
+1. **Vercel** — add `lms.kenshu.com.au` to the LMS project; CNAME `lms` → the
+   target Vercel gives.
+2. **Supabase Auth** — Site URL `https://lms.kenshu.com.au`; add
+   `https://lms.kenshu.com.au/**` to redirect URLs.
+3. **Resend** — verify `lms.kenshu.com.au` as the sending domain (SPF + DKIM),
+   send from e.g. `login@lms.kenshu.com.au`. Keeps deliverability problems off the
+   root domain and off Mick's personal addresses. (`docs/EMAIL-SETUP.md` uses this.)
+4. Set `APP_URL=https://lms.kenshu.com.au` in the edge-function secrets.
+
+**Proposed, not yet decided — white-label by hostname.** The kenshu.com.au site
+sells a white-labelled LMS "carrying your name, not ours", but every client's staff
+would log in at `lms.kenshu.com.au` and get emails from it. A client brand team may
+balk. Proposal: keep `lms.kenshu.com.au` for the pilot, but design the app to
+resolve the tenant (org) from the hostname, so a client can later point their own
+domain at it (e.g. `learn.narta.com.au`). Cost per client: a Vercel domain,
+Supabase redirect URLs and a verified Resend sending domain. Much cheaper to design
+in now than retrofit. **This is beyond the current spec — needs Mick's decision
+before anyone builds it.** Today, per-org branding only covers colour and logo
+(`orgs.brand_color`, `orgs.logo_url`).
+
+**Brand naming still inside the app:** UI copy, emails and the client PDF say
+"P1xel Forge Training" / "P1xel Forge LMS". Switching to Kenshu is a copy change
+across `app/`, `supabase/functions/_shared/email.ts`, `supabase/templates/` and the
+PDF — confirm with Mick first.
+
+**Fixes noted for the kenshu.com.au website** (separate from this repo, recorded
+here so they aren't lost; only the page text was reviewed — design, mobile and
+speed weren't checked):
+
+- **"Single sign-on ready"** — the LMS is magic links only. An IT reader will
+  take SSO to mean SAML/OIDC, which we can't back. Change to "magic-link sign-in"
+  or cut it.
+- **"Book a 20-minute call"** scrolls to a section that's only a mailto link.
+  Add a real booking link, or rename the button "Email me".
+- **Contact email** is `mick@mickrussell.com`; P1xel Forge uses
+  `mick@p1xelforge.com` — three identities across three brands. Set up
+  `hello@kenshu.com.au` so contact matches the domain. (The client PDF also uses
+  `mick@mickrussell.com` — update it to match.)
+- **Platform section heading** is a run-on sentence doing an H2's job, and
+  "12 years planning" reads as puffery unless it says what the twelve years were.
+  Pick one tight line.
+- **Root domain** — make sure `kenshu.com.au` itself always resolves to the site
+  (it does now); never let it go bare once `lms.` is live.
+
 ## 6a. Version control
 
 Git repo on branch `main`. Baseline save point: **`182e764`**

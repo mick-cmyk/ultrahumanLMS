@@ -14,7 +14,7 @@ three commands.
 ## 1. Resend account and domain (~15 min + DNS wait)
 
 1. Sign up at resend.com.
-2. **Domains → Add domain.** Use a subdomain you own, e.g. `mail.p1xelforge.com.au`
+2. **Domains → Add domain.** Use a subdomain you own, e.g. `lms.kenshu.com.au`
    (a subdomain keeps this traffic off your main domain's reputation).
 3. Resend shows 3–4 DNS records (SPF, DKIM, optionally DMARC). Add them at your
    DNS host. Click **Verify** — usually minutes, can be a few hours.
@@ -27,7 +27,7 @@ address. That's enough for step 2.
 ## 2. Prove it works from your machine
 
 In `.env.local` fill in `RESEND_API_KEY` and `EMAIL_FROM`
-(e.g. `P1xel Forge Training <training@mail.p1xelforge.com.au>`), then:
+(e.g. `P1xel Forge Training <login@lms.kenshu.com.au>`), then:
 
 ```bash
 npm run email:preview
@@ -53,7 +53,7 @@ supabase link --project-ref wkbsafznaxegkkdnplip
 ```
 
 ```bash
-supabase secrets set RESEND_API_KEY=re_xxx "EMAIL_FROM=P1xel Forge Training <training@mail.p1xelforge.com.au>" APP_URL=https://YOUR-VERCEL-URL CRON_SECRET=pick-a-long-random-string
+supabase secrets set RESEND_API_KEY=re_xxx "EMAIL_FROM=P1xel Forge Training <login@lms.kenshu.com.au>" APP_URL=https://lms.kenshu.com.au CRON_SECRET=pick-a-long-random-string
 ```
 
 ```bash
@@ -85,7 +85,7 @@ Project Settings → Authentication → SMTP Settings → enable custom SMTP:
 | Port | `465` |
 | Username | `resend` |
 | Password | your Resend API key |
-| Sender email | `training@mail.p1xelforge.com.au` |
+| Sender email | `login@lms.kenshu.com.au` |
 | Sender name | `P1xel Forge Training` |
 
 Then raise **Rate Limits → emails per hour** (e.g. 100).

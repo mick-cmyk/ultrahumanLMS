@@ -41,6 +41,26 @@ group them as *must fix*, *should fix*, *nice to have*. Areas I care about:
 The client-facing PDF (`P1xel-Forge-LMS-Overview.pdf`) is also open for
 design and copy feedback.
 
+## New: the brand is Kenshu
+
+The LMS will trade as **Kenshu** — I own **kenshu.com.au** and there's a website
+live on it. The pilot will run at **`lms.kenshu.com.au`**. Full detail in
+`docs/HANDOVER.md` section 6b. In short:
+
+- **Domain setup order** (Vercel → Supabase Auth URLs → Resend sending domain)
+  is written down. Supabase and Resend must be locked *before* any login link
+  goes out.
+- **Please review a proposal, don't build it yet:** let the app work out which
+  client it is from the web address, so clients can later use their own domain
+  (e.g. `learn.narta.com.au`). The website promises white-labelling, and a
+  `kenshu` login URL undercuts that. This is beyond the current spec, so tell me
+  what it would take and what it would touch.
+- **Renaming "P1xel Forge" → "Kenshu"** across the app, emails and PDF: list
+  every place it appears, but check with me before changing them.
+- **Website fixes** are listed in 6b (the "Single sign-on ready" claim, the
+  booking button, a `hello@kenshu.com.au` contact address, the platform heading).
+  The website isn't in this repo, but your feedback on it is welcome.
+
 ## Ground rules
 
 - **Don't relitigate the spec's "Decisions already made"**: magic links only (no
