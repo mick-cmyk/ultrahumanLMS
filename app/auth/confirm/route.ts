@@ -1,6 +1,7 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { safeNext } from '@/lib/safe-redirect';
 
 // Lands here from the magic link email:
 //   /auth/confirm?token_hash=...&type=magiclink
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
-  const next = searchParams.get('next') ?? '/';
+  const next = safeNext(searchParams.get('next'));
 
   if (tokenHash && type) {
     const supabase = await createClient();
