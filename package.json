@@ -14,7 +14,8 @@
     "seed:purge": "tsx --env-file=.env.local seed/kenshu.ts purge",
     "admin:bootstrap": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",
     "golive:check": "tsx --env-file=.env.local scripts/go-live-check.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "login:link": "tsx --env-file=.env.local scripts/login-link.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

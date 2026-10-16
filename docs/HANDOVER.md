@@ -12,7 +12,7 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 
 ## To get the Kenshu demo running
 
-1. In `.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, the publishable key and `SUPABASE_SERVICE_ROLE_KEY` for LMS Demo V1 (Supabase dashboard, Project Settings, API). Also set `NEXT_PUBLIC_APP_NAME=Kenshu` and `APP_URL`.
+1. In `.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable key) and `SUPABASE_SERVICE_ROLE_KEY` for LMS Demo V1 (Supabase dashboard, Project Settings, API). Also set `NEXT_PUBLIC_APP_NAME=Kenshu`. To sign in as a demo user: `npm run login:link -- --email admin@kenshu-demo.invalid`.
 2. `npm run seed:load -- --mark-demo`
 3. Edge function secrets: `CRON_SECRET`, `APP_URL`, `BRAND_NAME`, `RESEND_API_KEY` (optional while testing; without it links are logged). Deploy with `npm run email:deploy`.
 4. Database settings used by cron: `app.settings.retest_dispatch_url` and `_secret`, `app.settings.weekly_digest_url` and `_secret` (the secret is the same value as `CRON_SECRET`; see the comment at the top of `20261017000800_cron.sql`); then `select public.schedule_retest_dispatch(); select public.schedule_weekly_digest();`.
