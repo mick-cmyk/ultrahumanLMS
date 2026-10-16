@@ -96,12 +96,11 @@ Tokyo). Local Docker was abandoned. Production should be a fresh project in
 
 ## 6. Open items (in priority order)
 
-1. **Supabase connector permission.** In the last session the claude.ai Supabase
-   connector refused every query, so nothing could be run against the database.
-   Mick needs to reconnect it.
-2. **Leftover test password.** A temporary password was put on
-   `ava.jb.south@example.com` to test the UI. It may still be there. Fix:
-   `update auth.users set encrypted_password = '' where email = 'ava.jb.south@example.com';`
+1. ~~Supabase connector permission~~ — reconnected 17 Oct 2026. The project
+   lives in Supabase account **test@mickrussell.com** (org "test@mickrussell.com's
+   Org", Pro plan).
+2. ~~Leftover test password~~ — cleared 17 Oct 2026; 0 of 24 users have a
+   password. If you set one to test the UI, remove it afterwards.
 3. **`SUPABASE_SERVICE_ROLE_KEY` blank** in `.env.local`. Needed by re-test grading,
    CSV import and staff management.
 4. **Resend setup** — follow `docs/EMAIL-SETUP.md`. Code, templates and preview

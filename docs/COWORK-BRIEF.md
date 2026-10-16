@@ -80,7 +80,6 @@ live on it. The pilot will run at **`lms.kenshu.com.au`**. Full detail in
 
 ## Things you can't do yet (blocked on me)
 
-- The live database connection is currently refused — I need to reconnect it.
 - Resend email isn't set up yet (steps in `docs/EMAIL-SETUP.md`).
 - Bunny video keys and the service role key aren't filled in.
 
