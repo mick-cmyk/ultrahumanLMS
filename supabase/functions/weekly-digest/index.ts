@@ -1,17 +1,23 @@
-// weekly-digest — Monday-morning summary to managers and admins (spec Phase 4).
+// weekly-digest: Monday-morning summary to managers and admins.
 //
-// For each active manager/admin, emails their own scope's course numbers:
+// For each active manager or admin, emails their own scope's course numbers:
 // assigned / completed / retention-verified. The heavy lifting is in
-// report_summary_for(viewer), so this function is just fan-out + formatting.
+// report_summary_for(viewer), so this function is fan-out and formatting.
 //
-// Invoked by pg_cron via pg_net weekly (see the cron migration). Guarded by the
-// CRON_SECRET header. Resend when RESEND_API_KEY is set, else logs.
+// The cron fires every hour. The function acts only on Monday inside the send
+// window (8am to noon Sydney time), and claims the ISO week in job_runs first,
+// so the digest goes out once per week no matter how many hourly pings land
+// inside the window, or how many times the cron is retried.
+//
+// Guarded by the CRON_SECRET header. Resend when RESEND_API_KEY is set, else logs.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   APP_URL,
   type EmailBlock,
   fromAddress,
+  inSendWindow,
+  localTime,
   renderEmail,
   renderText,
   send,
@@ -21,13 +27,6 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const EMAIL_FROM = fromAddress('DIGEST_EMAIL_FROM');
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
-
-/** Monday's date, so a re-run inside the same week reuses the idempotency key. */
-function weekStamp(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return d.toISOString().slice(0, 10);
-}
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -86,7 +85,23 @@ Deno.serve(async (req) => {
     return new Response('Forbidden', { status: 403 });
   }
 
+  const now = localTime();
+  const force = new URL(req.url).searchParams.get('force') === '1';
+  if (!force && !(now.weekday === 1 && inSendWindow(now))) {
+    return Response.json({ skipped: 'not Monday morning', localHour: now.hour });
+  }
+
   try {
+    // One digest per ISO week. A forced manual run does not consume the week.
+    if (!force) {
+      const { data: claimed, error: claimErr } = await db.rpc('claim_job_run', {
+        p_job: 'weekly-digest',
+        p_run_key: now.isoWeekKey,
+      });
+      if (claimErr) throw claimErr;
+      if (!claimed) return Response.json({ skipped: 'already sent this week', week: now.isoWeekKey });
+    }
+
     const { data: recipients, error } = await db.rpc('digest_recipients');
     if (error) throw error;
 
@@ -101,7 +116,7 @@ Deno.serve(async (req) => {
         console.error(`[weekly-digest] summary failed for ${r.email}: ${sumErr.message}`);
         continue;
       }
-      // Nothing assigned in their scope → no email worth sending.
+      // Nothing assigned in their scope: no email worth sending.
       if (!rows || rows.length === 0) {
         skipped++;
         continue;
@@ -118,14 +133,14 @@ Deno.serve(async (req) => {
           blocks,
         }),
         text: renderText(subject, blocks),
-        idempotencyKey: `digest-${r.id}-${weekStamp()}`,
+        idempotencyKey: `digest-${r.id}-${now.isoWeekKey}`,
         tag: 'weekly-digest',
         logPrefix: '[weekly-digest]',
       });
       if (res.ok) sent++;
     }
 
-    const summary = { sent, skipped };
+    const summary = { sent, skipped, week: now.isoWeekKey };
     console.log('[weekly-digest]', JSON.stringify(summary));
     return Response.json(summary);
   } catch (e) {

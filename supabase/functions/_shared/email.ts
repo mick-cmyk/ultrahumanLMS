@@ -1,8 +1,8 @@
-// Shared email layer for the edge functions (spec: "Transactional email — Resend").
+// Shared email layer for the edge functions (spec: "Transactional email: Resend").
 //
 // Both crons (retest-dispatch, weekly-digest) send through here so that the
 // from address, retry behaviour, branding and dry-run fallback live in exactly
-// one place. Magic links do NOT come through here — those are sent by Supabase
+// one place. Magic links do NOT come through here: those are sent by Supabase
 // Auth itself, which is pointed at Resend over SMTP (see docs/EMAIL-SETUP.md).
 //
 // Behaviour with no RESEND_API_KEY set: every send is logged instead of sent,
@@ -25,6 +25,9 @@ function env(name: string): string | undefined {
 
 export const APP_URL = env('APP_URL') ?? 'http://localhost:3000';
 
+/** Shown in the email header and footer when a unit has no logo of its own. */
+export const BRAND_NAME = env('BRAND_NAME') ?? 'Training';
+
 const RESEND_API_KEY = env('RESEND_API_KEY');
 const REPLY_TO = env('EMAIL_REPLY_TO');
 
@@ -34,9 +37,9 @@ const DRY_RUN = !RESEND_API_KEY || env('EMAIL_DRY_RUN') === '1';
 export type Brand = {
   /** Retailer or client name shown in the header. */
   name?: string | null;
-  /** orgs.brand_color — any CSS colour. Falls back to the P1xel Forge ink. */
+  /** A unit's brand colour, as a hex value. Falls back to the default ink. */
   color?: string | null;
-  /** orgs.logo_url — absolute URL. Omitted rather than broken if missing. */
+  /** A unit's logo URL, absolute. Omitted rather than broken if missing. */
   logoUrl?: string | null;
 };
 
@@ -77,7 +80,7 @@ export type EmailBlock =
   | { kind: 'rows'; heading: string; rows: Array<[string, string, string]> };
 
 /**
- * Renders a plain, table-based HTML email. Deliberately boring markup — this
+ * Renders a plain, table-based HTML email. Deliberately boring markup: this
  * has to survive Outlook and the Gmail app on a phone in a stockroom.
  */
 export function renderEmail(opts: {
@@ -129,7 +132,7 @@ export function renderEmail(opts: {
   const header = logo
     ? `<img src="${esc(logo)}" alt="${esc(opts.brand?.name ?? '')}" height="28" style="display:block;height:28px;border:0">`
     : `<span style="font-size:15px;font-weight:bold;letter-spacing:.04em;color:${INK}">${esc(
-        opts.brand?.name ?? 'P1xel Forge Training'
+        opts.brand?.name ?? BRAND_NAME
       )}</span>`;
 
   return `<!doctype html>
@@ -149,7 +152,7 @@ export function renderEmail(opts: {
     ${body}
   </td></tr>
   <tr><td style="padding:18px 28px;background:${CREAM};font-size:12px;line-height:1.5;color:${SLATE}">
-    Sent by P1xel Forge Training. If this reached you by mistake, let your manager know.
+    Sent by ${esc(BRAND_NAME)}. If this reached you by mistake, let your manager know.
   </td></tr>
 </table>
 </td></tr></table>
@@ -175,7 +178,7 @@ export type SendResult = { ok: boolean; id?: string; error?: string; dryRun?: bo
 
 /**
  * Sends via Resend with a small retry. `idempotencyKey` makes a retried cron
- * run (or a pg_net double-fire) safe — Resend collapses repeats within 24h,
+ * run (or a pg_net double-fire) safe: Resend collapses repeats within 24h,
  * so a learner never gets the same re-test email twice.
  */
 export async function send(opts: {
@@ -190,7 +193,7 @@ export async function send(opts: {
 }): Promise<SendResult> {
   if (DRY_RUN) {
     console.log(
-      `${opts.logPrefix} (dry run — no RESEND_API_KEY) to=${opts.to} subject="${opts.subject}"\n${opts.text}`
+      `${opts.logPrefix} (dry run: no RESEND_API_KEY) to=${opts.to} subject="${opts.subject}"\n${opts.text}`
     );
     return { ok: true, dryRun: true };
   }
@@ -212,7 +215,7 @@ export async function send(opts: {
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
 
   // Three attempts, backing off. Only rate limits and server faults are worth
-  // retrying — a 422 (bad address, unverified domain) will fail identically.
+  // retrying: a 422 (bad address, unverified domain) will fail identically.
   let lastError = '';
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -243,6 +246,50 @@ export async function send(opts: {
  */
 export function fromAddress(specificEnv: string): string {
   return (
-    env(specificEnv) ?? env('EMAIL_FROM') ?? 'P1xel Forge Training <training@example.com>'
+    env(specificEnv) ?? env('EMAIL_FROM') ?? `${BRAND_NAME} <training@example.com>`
   );
+}
+
+
+// ---------------------------------------------------------------------------
+// Send windows. The crons fire every hour; the functions decide whether it is
+// the right local moment, so daylight saving never needs a cron edit.
+// ---------------------------------------------------------------------------
+
+const SEND_TZ = env('SEND_TIMEZONE') ?? 'Australia/Sydney';
+const SEND_START_HOUR = Number(env('SEND_START_HOUR') ?? '8');
+const SEND_WINDOW_HOURS = Number(env('SEND_WINDOW_HOURS') ?? '4');
+
+export type LocalTime = { hour: number; weekday: number; isoWeekKey: string };
+
+/** The current local time in the send timezone. weekday: 1 = Monday ... 7 = Sunday. */
+export function localTime(now: Date = new Date()): LocalTime {
+  const parts = new Intl.DateTimeFormat('en-AU', {
+    timeZone: SEND_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    weekday: 'short',
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  const y = Number(get('year'));
+  const m = Number(get('month'));
+  const d = Number(get('day'));
+  const hour = Number(get('hour'));
+  const weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(get('weekday')) + 1;
+
+  // ISO week of the local calendar date: the week belongs to the year of its Thursday.
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dow = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dow);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { hour, weekday, isoWeekKey: `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}` };
+}
+
+/** True during the send window (default 8am to noon local, so a missed hour is retried). */
+export function inSendWindow(t: LocalTime = localTime()): boolean {
+  return t.hour >= SEND_START_HOUR && t.hour < SEND_START_HOUR + SEND_WINDOW_HOURS;
 }

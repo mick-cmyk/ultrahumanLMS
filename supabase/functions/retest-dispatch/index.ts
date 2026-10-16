@@ -1,18 +1,25 @@
-// retest-dispatch — the daily re-test engine cron (spec Phase 2).
+// retest-dispatch: the re-test engine cron.
+//
+// Fires every hour (see the cron migration) but only acts inside the send
+// window, 8am to noon Sydney time by default, so staff get the email at the
+// start of their day and a missed hour is picked up by the next one. The
+// window is computed in the Australia/Sydney timezone, so daylight saving
+// needs no cron edits.
 //
 // Two jobs each run:
-//   1. New sends:  due re-tests (pending or requeued, under the cycle cap) get
-//      a single-use token and the "your 2-minute check is ready" email, then
-//      flip to 'sent'.
-//   2. Reminders:  re-tests sent 3+ days ago and still untouched get one
+//   1. New sends: due re-tests (pending or requeued, under the cycle cap) get
+//      a single-use token and the "your quick check is ready" email, then flip
+//      to 'sent'.
+//   2. Reminders: re-tests sent 3+ days ago and still untouched get one
 //      follow-up email, then stop. Two emails max per cycle.
 //
-// Invoked in production by pg_cron via pg_net (see the cron migration). Guarded
-// with the CRON_SECRET header so nothing else can trigger it.
+// The emailed link opens a landing page with a Start button. Pressing it signs
+// the learner in and takes them straight to the check, so there is no login
+// step. The token lasts 7 days.
 //
-// Email goes via Resend when RESEND_API_KEY is set; otherwise it logs the link
-// so the loop is fully testable locally without an email provider. All of that
-// lives in ../_shared/email.ts.
+// Guarded by the CRON_SECRET header so nothing else can trigger it. Email goes
+// via Resend when RESEND_API_KEY is set; otherwise the link is logged, so the
+// loop is testable without an email provider.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
@@ -20,23 +27,22 @@ import {
   type Brand,
   type EmailBlock,
   fromAddress,
+  inSendWindow,
+  localTime,
   renderEmail,
   renderText,
   send,
 } from '../_shared/email.ts';
 
-// Defaults mirror lib/constants.ts. Kept in sync by hand (both are the spec's
-// "configurable constants" — this is the server side of that pair).
-// Cadence knobs — defaults mirror lib/constants.ts, overridable via env so the
-// reminder timing can be tuned in production without a redeploy (spec Phase 4:
-// "reminder cadence tuning").
+// Cadence knobs. Defaults mirror lib/constants.ts and can be tuned with env
+// vars without a redeploy.
 const numEnv = (name: string, fallback: number) => {
   const v = Number(Deno.env.get(name));
   return Number.isFinite(v) && v > 0 ? v : fallback;
 };
 const REMINDER_DELAY_DAYS = numEnv('REMINDER_DELAY_DAYS', 3);
 const RETEST_MAX_CYCLES = numEnv('RETEST_MAX_CYCLES', 3);
-const TOKEN_TTL_DAYS = numEnv('RETEST_TOKEN_TTL_DAYS', 14);
+const TOKEN_TTL_DAYS = numEnv('RETEST_TOKEN_TTL_DAYS', 7);
 const RETEST_QUESTION_HINT = 4; // informational only; sampling happens at play time
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -67,21 +73,21 @@ async function sendEmail(opts: {
   const first = opts.name?.split(' ')[0] ?? 'there';
   const subject = opts.reminder
     ? `Reminder: your quick check on ${opts.moduleTitle}`
-    : `Quick 2-minute check on ${opts.moduleTitle} — no login needed`;
+    : `Quick check on ${opts.moduleTitle}: two minutes, no login`;
 
   const blocks: EmailBlock[] = [
     { kind: 'p', text: `Hi ${first},` },
     {
       kind: 'p',
       text:
-        `${opts.reminder ? 'Just a reminder — you' : 'You'} finished ${opts.moduleTitle} ` +
+        `${opts.reminder ? 'Just a reminder: you' : 'You'} finished ${opts.moduleTitle} ` +
         `a few days ago. Here's a quick ${RETEST_QUESTION_HINT}-question check to lock it in.`,
     },
     { kind: 'cta', label: 'Start the check', href: opts.link },
     {
       kind: 'note',
       text:
-        'No login needed — the link knows who you are. It takes about two minutes, ' +
+        'Tap the button and you go straight in. It takes about two minutes, ' +
         'and the gap since you watched it is deliberate: that is what makes it stick.',
     },
   ];
@@ -91,7 +97,7 @@ async function sendEmail(opts: {
     to: opts.to,
     subject,
     html: renderEmail({
-      preheader: `A two-minute check on ${opts.moduleTitle}. No login needed.`,
+      preheader: `A two-minute check on ${opts.moduleTitle}.`,
       heading: opts.reminder ? 'Your check is still waiting' : 'Time for a quick check',
       blocks,
       brand: opts.brand,
@@ -104,28 +110,27 @@ async function sendEmail(opts: {
   return res.ok;
 }
 
-// Retest joined to the recipient, their org's branding, and the module title.
-async function loadRecipient(retestId: string, moduleId: string, userId: string) {
-  const [{ data: user }, { data: module }] = await Promise.all([
-    db
-      .from('users')
-      .select('email, full_name, active, org_id, orgs(name, brand_color, logo_url)')
-      .eq('id', userId)
-      .maybeSingle(),
+// The recipient, their nearest branded unit (logo and colour), and the module title.
+async function loadRecipient(moduleId: string, userId: string) {
+  const [{ data: user }, { data: module }, { data: brandRows }] = await Promise.all([
+    db.from('users').select('email, full_name, active, role').eq('id', userId).maybeSingle(),
     db.from('modules').select('title').eq('id', moduleId).maybeSingle(),
+    db.rpc('unit_brand_for', { p_user: userId }),
   ]);
-  // supabase-js types a to-one join as an array; normalise it.
-  const orgRaw = (user as { orgs?: unknown } | null)?.orgs;
-  const org = (Array.isArray(orgRaw) ? orgRaw[0] : orgRaw) as
+  const b = (Array.isArray(brandRows) ? brandRows[0] : null) as
     | { name?: string; brand_color?: string; logo_url?: string }
-    | undefined;
+    | null;
   const brand: Brand = {
-    name: org?.name ?? null,
-    color: org?.brand_color ?? null,
-    logoUrl: org?.logo_url ?? null,
+    name: b?.name ?? null,
+    color: b?.brand_color ?? null,
+    logoUrl: b?.logo_url ?? null,
   };
   return { user, brand, moduleTitle: module?.title ?? 'your module' };
 }
+
+// Only active learners get a session-starting link.
+const canReceive = (u: { active?: boolean; email?: string; role?: string } | null) =>
+  Boolean(u?.active && u.email && u.role === 'learner');
 
 async function dispatchNewSends() {
   const nowIso = new Date().toISOString();
@@ -139,8 +144,8 @@ async function dispatchNewSends() {
 
   let sent = 0;
   for (const r of due ?? []) {
-    const { user, brand, moduleTitle } = await loadRecipient(r.id, r.module_id, r.user_id);
-    if (!user?.active || !user.email) continue; // deactivated users drop out
+    const { user, brand, moduleTitle } = await loadRecipient(r.module_id, r.user_id);
+    if (!canReceive(user)) continue; // deactivated or non-learner users drop out
 
     const token = newToken();
     const expires = new Date(Date.now() + TOKEN_TTL_DAYS * 86400_000).toISOString();
@@ -153,8 +158,8 @@ async function dispatchNewSends() {
     }
 
     const ok = await sendEmail({
-      to: user.email,
-      name: user.full_name,
+      to: user!.email!,
+      name: user!.full_name,
       moduleTitle,
       link: `${APP_URL}/retest/${token}`,
       reminder: false,
@@ -185,8 +190,8 @@ async function dispatchReminders() {
 
   let reminded = 0;
   for (const r of stale ?? []) {
-    const { user, brand, moduleTitle } = await loadRecipient(r.id, r.module_id, r.user_id);
-    if (!user?.active || !user.email) continue;
+    const { user, brand, moduleTitle } = await loadRecipient(r.module_id, r.user_id);
+    if (!canReceive(user)) continue;
 
     // Reuse the latest still-valid unused token; mint a fresh one if none.
     const { data: tokens } = await db
@@ -205,8 +210,8 @@ async function dispatchReminders() {
     }
 
     const ok = await sendEmail({
-      to: user.email,
-      name: user.full_name,
+      to: user!.email!,
+      name: user!.full_name,
       moduleTitle,
       link: `${APP_URL}/retest/${token}`,
       reminder: true,
@@ -234,6 +239,13 @@ Deno.serve(async (req) => {
   }
   if (req.headers.get('x-cron-secret') !== CRON_SECRET) {
     return new Response('Forbidden', { status: 403 });
+  }
+
+  // ?force=1 skips the window check for manual runs. It still needs the secret.
+  const force = new URL(req.url).searchParams.get('force') === '1';
+  const now = localTime();
+  if (!force && !inSendWindow(now)) {
+    return Response.json({ skipped: 'outside send window', localHour: now.hour });
   }
 
   try {
