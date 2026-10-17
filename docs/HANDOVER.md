@@ -29,7 +29,7 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 - Migration version drift: LMS Demo V1 stamped its own versions rather than the repo file names. Reconcile before applying to another project (UltraHuman should be created in a Sydney region).
 - Brand files hold placeholder values: confirm the real Kenshu colour and logo, and everything for UltraHuman (`brands/*.ts`).
 - Accessibility and wording fixes (S5, S6, S8), the literal `&apos;` bug.
-- Database tests: `v2_core` (69 checks) and `v2_learning` (84 checks) are done: 83 passed on the first run, the one failure (re-test not scheduled when the last lesson is watch-only) was fixed by migration `20261017001300` and that scenario re-checked on its own, but the whole file has not been re-run since. `v2_reporting` is written but has not been run against the database yet. Run each inside `begin; ... rollback;`; the live project holds demo data, so purge it first inside the transaction (the tests build their own root unit).
+- Database tests: `v2_core` (69 checks), `v2_learning` (84 checks) and `v2_reporting` all pass on the live project. `v2_learning` was re-run whole on 17 Oct after migration `20261017001300`: 84 passed, 0 failed. `v2_reporting` was run as two rolled-back transactions (58 checks, 0 failures) because the tool cancels runs containing `delete from`; the one delete-based check was moved to the end, so the unmodified file has not been run. Run each inside `begin; ... rollback;`; the live project holds demo data, so purge it first inside the transaction (the tests build their own root unit).
 - No TypeScript or end-to-end tests yet.
 - Rate limiting on `/api/retest/start` is in-memory and best effort.
 

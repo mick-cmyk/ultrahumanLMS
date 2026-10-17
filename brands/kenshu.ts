@@ -1,13 +1,13 @@
 import type { BrandConfig } from './types';
 
 // The Kenshu testing and demo site (lms.kenshu.com.au).
-// primaryColor is a placeholder: swap in the real Kenshu colour and the whole
+// primaryColor is the Kenshu LMS signal orange (see the Kenshu LMS design system).
 // app, emails and login template follow after `npm run brand:build`.
 const kenshu: BrandConfig = {
   id: 'kenshu',
   name: 'Kenshu',
   tagline: 'Short training that sticks.',
-  primaryColor: '#0f766e',
+  primaryColor: '#ED4E05',
   logoUrl: null,
   supportEmail: null,
   links: { website: 'https://kenshu.com.au' },
