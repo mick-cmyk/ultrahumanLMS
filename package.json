@@ -9,7 +9,7 @@
     "test:db": "supabase test db",
     "email:preview": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
     "email:send": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
-    "email:deploy": "supabase functions deploy retest-dispatch weekly-digest",
+    "email:deploy": "supabase functions deploy retest-dispatch weekly-digest --no-verify-jwt --use-api",
     "seed:load": "tsx --env-file=.env.local seed/kenshu.ts load",
     "seed:purge": "tsx --env-file=.env.local seed/kenshu.ts purge",
     "admin:bootstrap": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",
@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit",
     "login:link": "tsx --env-file=.env.local scripts/login-link.ts",
     "brand:build": "tsx scripts/brand-build.ts",
-    "brand:secrets": "tsx scripts/brand-build.ts secrets"
+    "brand:secrets": "tsx scripts/brand-build.ts secrets",
+    "email:setup": "tsx --env-file=.env.local scripts/email-setup.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

@@ -15,8 +15,8 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 
 1. In `.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable key) and `SUPABASE_SERVICE_ROLE_KEY` for LMS Demo V1 (Supabase dashboard, Project Settings, API). Optionally `NEXT_PUBLIC_BRAND=kenshu` (the default). To sign in as a demo user: `npm run login:link -- --email admin@kenshu-demo.invalid`.
 2. `npm run seed:load -- --mark-demo`
-3. Edge function secrets: `CRON_SECRET`, and the brand ones from `npm run brand:secrets -- --app-url <site>`, `RESEND_API_KEY` (optional while testing; without it links are logged). Deploy with `npm run email:deploy`.
-4. Database settings used by cron: `app.settings.retest_dispatch_url` and `_secret`, `app.settings.weekly_digest_url` and `_secret` (the secret is the same value as `CRON_SECRET`; see the comment at the top of `20261017000800_cron.sql`); then `select public.schedule_retest_dispatch(); select public.schedule_weekly_digest();`.
+3. Scheduled emails: `npx supabase login` once, then `npm run email:setup -- --app-url https://lms.kenshu.com.au`. It makes a fresh `CRON_SECRET`, sets the edge function secrets from the brand file, deploys both functions and schedules the two hourly jobs. It starts in dry-run (emails are logged, not sent). When Resend is ready (`docs/EMAIL-SETUP.md`), put `RESEND_API_KEY` and `EMAIL_FROM` in `.env.local` and run it again with `--live`.
+4. (Folded into step 3: no database settings or SQL pasting needed.)
 5. Vercel: new project for the Kenshu brand, same env vars, domain `lms.kenshu.com.au`.
 6. To test real emails, add yourself as a real staff member on the People page (demo addresses end in `.invalid` and cannot receive mail).
 
