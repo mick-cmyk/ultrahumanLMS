@@ -1,0 +1,13 @@
+.vs
+.git
+node_modules
+.next
+.env.local
+.env.local.old-project
+files
+filesv2
+files.zip
+filesv2.zip
+*.pdf
+LMS Build Out
+.claude
