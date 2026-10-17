@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { RETEST_MAX_CYCLES, RETEST_QUESTION_COUNT } from '@/lib/constants';
 import { RetestPlayer } from './retest-player';
+import { cap, getBrand } from '@/brands';
+
+const check = getBrand().voice.checkName;
 
 type OpenRetest = {
   retest_id: string;
@@ -25,13 +28,13 @@ export default async function RetestPage({
   const { data: open, error } = await supabase.rpc('my_open_retests', {
     p_max_cycles: RETEST_MAX_CYCLES,
   });
-  if (error) throw new Error(`Failed to load re-tests: ${error.message}`);
+  if (error) throw new Error(`Failed to load your checks: ${error.message}`);
   const list = (open ?? []) as OpenRetest[];
 
   if (list.length === 0) {
     return (
       <div className="mx-auto max-w-lg space-y-3 py-6">
-        <h1 className="text-xl font-semibold">Re-test</h1>
+        <h1 className="text-xl font-semibold">{cap(check)}</h1>
         <p className="rounded border border-gray-200 bg-gray-50 p-4 text-gray-700">
           Nothing is due right now. If you just passed one, you are all set. We
           will email you when the next check is ready.
@@ -74,7 +77,7 @@ export default async function RetestPage({
   if (buildErr || !built?.valid) {
     return (
       <div className="mx-auto max-w-lg space-y-3 py-6">
-        <h1 className="text-xl font-semibold">Re-test</h1>
+        <h1 className="text-xl font-semibold">{cap(check)}</h1>
         <p className="rounded border border-gray-200 bg-gray-50 p-4 text-gray-700">
           This check is not available right now.
         </p>

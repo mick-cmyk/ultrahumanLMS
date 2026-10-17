@@ -24,6 +24,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   APP_URL,
+  CHECK_NAME,
   type Brand,
   type EmailBlock,
   fromAddress,
@@ -44,6 +45,7 @@ const REMINDER_DELAY_DAYS = numEnv('REMINDER_DELAY_DAYS', 3);
 const RETEST_MAX_CYCLES = numEnv('RETEST_MAX_CYCLES', 3);
 const TOKEN_TTL_DAYS = numEnv('RETEST_TOKEN_TTL_DAYS', 7);
 const RETEST_QUESTION_HINT = 4; // informational only; sampling happens at play time
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -72,8 +74,8 @@ async function sendEmail(opts: {
 }) {
   const first = opts.name?.split(' ')[0] ?? 'there';
   const subject = opts.reminder
-    ? `Reminder: your quick check on ${opts.moduleTitle}`
-    : `Quick check on ${opts.moduleTitle}: two minutes, no login`;
+    ? `Reminder: your ${CHECK_NAME} on ${opts.moduleTitle}`
+    : `${cap(CHECK_NAME)} on ${opts.moduleTitle}: two minutes, no login`;
 
   const blocks: EmailBlock[] = [
     { kind: 'p', text: `Hi ${first},` },
@@ -81,9 +83,9 @@ async function sendEmail(opts: {
       kind: 'p',
       text:
         `${opts.reminder ? 'Just a reminder: you' : 'You'} finished ${opts.moduleTitle} ` +
-        `a few days ago. Here's a quick ${RETEST_QUESTION_HINT}-question check to lock it in.`,
+        `a few days ago. Here's your ${CHECK_NAME} to lock it in: ${RETEST_QUESTION_HINT} questions.`,
     },
-    { kind: 'cta', label: 'Start the check', href: opts.link },
+    { kind: 'cta', label: `Start the ${CHECK_NAME}`, href: opts.link },
     {
       kind: 'note',
       text:
@@ -97,8 +99,8 @@ async function sendEmail(opts: {
     to: opts.to,
     subject,
     html: renderEmail({
-      preheader: `A two-minute check on ${opts.moduleTitle}.`,
-      heading: opts.reminder ? 'Your check is still waiting' : 'Time for a quick check',
+      preheader: `A two-minute ${CHECK_NAME} on ${opts.moduleTitle}.`,
+      heading: opts.reminder ? `Your ${CHECK_NAME} is still waiting` : `Time for your ${CHECK_NAME}`,
       blocks,
       brand: opts.brand,
     }),

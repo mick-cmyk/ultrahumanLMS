@@ -28,6 +28,16 @@ export const APP_URL = env('APP_URL') ?? 'http://localhost:3000';
 /** Shown in the email header and footer when a unit has no logo of its own. */
 export const BRAND_NAME = env('BRAND_NAME') ?? 'Training';
 
+// The rest of the deployment's brand. These are set as edge function secrets by
+// `npm run brand:secrets`, generated from brands/<brand>.ts, so the app and the
+// emails can never drift apart.
+export const BRAND_COLOR = env('BRAND_COLOR');
+export const BRAND_LOGO_URL = env('BRAND_LOGO_URL');
+/** What the delayed re-test is called to staff, lower case. */
+export const CHECK_NAME = env('BRAND_CHECK_NAME') ?? 'quick check';
+export const SIGNOFF = env('BRAND_SIGNOFF');
+export const SUPPORT_EMAIL = env('BRAND_SUPPORT_EMAIL');
+
 const RESEND_API_KEY = env('RESEND_API_KEY');
 const REPLY_TO = env('EMAIL_REPLY_TO');
 
@@ -55,14 +65,18 @@ function safeColour(value: string | null | undefined, fallback: string): string 
   return /^#[0-9a-f]{3,8}$/i.test(value.trim()) ? value.trim() : fallback;
 }
 
-/** Ink text on light brand colours (JB yellow), white on dark ones. */
+/** Whichever of white or ink has more contrast on this colour (WCAG ratio). */
 function textOn(hex: string): string {
   let h = hex.replace('#', '');
   if (h.length === 3 || h.length === 4) h = h.split('').map((c) => c + c).join('');
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return lum > 0.45 ? INK : '#ffffff';
+  const lum = (rgbHex: string) => {
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(rgbHex.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+  const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const l = lum(h.slice(0, 6));
+  return ratio(l, 1) >= ratio(l, lum(INK.replace('#', ''))) ? '#ffffff' : INK;
 }
 
 function esc(s: string): string {
@@ -89,8 +103,8 @@ export function renderEmail(opts: {
   blocks: EmailBlock[];
   brand?: Brand;
 }): string {
-  const accent = safeColour(opts.brand?.color, INK);
-  const logo = opts.brand?.logoUrl;
+  const accent = safeColour(opts.brand?.color ?? BRAND_COLOR, INK);
+  const logo = opts.brand?.logoUrl ?? BRAND_LOGO_URL;
 
   const body = opts.blocks
     .map((b) => {
@@ -152,7 +166,9 @@ export function renderEmail(opts: {
     ${body}
   </td></tr>
   <tr><td style="padding:18px 28px;background:${CREAM};font-size:12px;line-height:1.5;color:${SLATE}">
-    Sent by ${esc(BRAND_NAME)}. If this reached you by mistake, let your manager know.
+    ${SIGNOFF ? esc(SIGNOFF) + '<br>' : ''}Sent by ${esc(BRAND_NAME)}. If this reached you by mistake, let your manager know.${
+      SUPPORT_EMAIL ? ` Questions? <a href="mailto:${esc(SUPPORT_EMAIL)}" style="color:${SLATE}">${esc(SUPPORT_EMAIL)}</a>.` : ''
+    }
   </td></tr>
 </table>
 </td></tr></table>

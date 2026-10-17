@@ -8,13 +8,14 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 - Privilege allowlist, scoped RLS, delayed re-tests, demo-data guard and purge.
 - App: provisioning that never changes an existing role; People, Structure, Assign, Team, Reporting pages for the unit tree; session-based re-test link (landing page, Start button, POST issues the session).
 - Edge functions: `retest-dispatch` and `weekly-digest` act only in the Sydney send window; digest once per ISO week.
+- Brand config: `brands/*.ts`, one per deployment via `NEXT_PUBLIC_BRAND`; app, emails and magic-link template all follow it.
 - Demo tooling: `seed/kenshu.ts`, `scripts/bootstrap-admin.ts`, `scripts/go-live-check.ts`.
 
 ## To get the Kenshu demo running
 
-1. In `.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable key) and `SUPABASE_SERVICE_ROLE_KEY` for LMS Demo V1 (Supabase dashboard, Project Settings, API). Also set `NEXT_PUBLIC_APP_NAME=Kenshu`. To sign in as a demo user: `npm run login:link -- --email admin@kenshu-demo.invalid`.
+1. In `.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable key) and `SUPABASE_SERVICE_ROLE_KEY` for LMS Demo V1 (Supabase dashboard, Project Settings, API). Optionally `NEXT_PUBLIC_BRAND=kenshu` (the default). To sign in as a demo user: `npm run login:link -- --email admin@kenshu-demo.invalid`.
 2. `npm run seed:load -- --mark-demo`
-3. Edge function secrets: `CRON_SECRET`, `APP_URL`, `BRAND_NAME`, `RESEND_API_KEY` (optional while testing; without it links are logged). Deploy with `npm run email:deploy`.
+3. Edge function secrets: `CRON_SECRET`, and the brand ones from `npm run brand:secrets -- --app-url <site>`, `RESEND_API_KEY` (optional while testing; without it links are logged). Deploy with `npm run email:deploy`.
 4. Database settings used by cron: `app.settings.retest_dispatch_url` and `_secret`, `app.settings.weekly_digest_url` and `_secret` (the secret is the same value as `CRON_SECRET`; see the comment at the top of `20261017000800_cron.sql`); then `select public.schedule_retest_dispatch(); select public.schedule_weekly_digest();`.
 5. Vercel: new project for the Kenshu brand, same env vars, domain `lms.kenshu.com.au`.
 6. To test real emails, add yourself as a real staff member on the People page (demo addresses end in `.invalid` and cannot receive mail).
@@ -26,7 +27,7 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 ## Known gaps
 
 - Migration version drift: LMS Demo V1 stamped its own versions rather than the repo file names. Reconcile before applying to another project (UltraHuman should be created in a Sydney region).
-- Brand configuration (`brands/<brand>.ts`, `getBrand()`), colour tokens sweep and the generated magic-link email template are not done; the app still uses default grey/blue Tailwind colours.
+- Brand files hold placeholder values: confirm the real Kenshu colour and logo, and everything for UltraHuman (`brands/*.ts`).
 - Accessibility and wording fixes (S5, S6, S8), the literal `&apos;` bug.
 - pgTAP tests for quiz, reporting and token functions still to be rewritten for v2 (core RLS/scope tests are done).
 - No TypeScript or end-to-end tests yet.

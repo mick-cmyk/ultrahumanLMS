@@ -1,3 +1,5 @@
+import { getBrand } from '@/brands';
+
 // Helpers for the unit tree. The database maintains `path` (ancestor ids from
 // the root down to the unit itself), so everything here is a plain read.
 
@@ -14,13 +16,14 @@ export type Unit = {
   active: boolean;
 };
 
-// Default display names for each level. The brand file will override these per
-// deployment; an unknown kind falls back to a tidied version of the key.
+// Display names for each level, from the deployment's brand file. An unknown
+// kind falls back to a tidied version of the key.
 export const DEFAULT_LEVEL_LABELS: Record<string, string> = {
   supplier: 'Supplier',
   brand: 'Retail brand',
   region: 'Region',
   store: 'Store',
+  ...getBrand().levelLabels,
 };
 
 export function levelLabel(kind: string, labels: Record<string, string> = DEFAULT_LEVEL_LABELS): string {

@@ -321,7 +321,7 @@ export function AssignForm({
         <button
           onClick={save}
           disabled={saveStatus === 'saving'}
-          className="ml-auto rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+          className="ml-auto rounded bg-brand hover:opacity-90 px-4 py-2 font-medium text-brand-fg disabled:opacity-50"
         >
           {saveStatus === 'saving' ? 'Saving...' : 'Save assignment'}
         </button>

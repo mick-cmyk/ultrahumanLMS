@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getProfile, homeFor } from '@/lib/auth';
 import { BrandBand } from '@/components/brand-band';
 import { RETEST_MAX_CYCLES } from '@/lib/constants';
+import { getBrand } from '@/brands';
+
+const check = getBrand().voice.checkName;
 
 // My training. Courses arrive already filtered by row level security: a course
 // row is visible only if it is published and an assignment rule matches this
@@ -62,7 +65,7 @@ export default async function MyTrainingPage() {
           className="block rounded border border-amber-300 bg-amber-50 p-4 text-amber-900 hover:bg-amber-100"
         >
           <span className="font-medium">
-            {dueCount === 1 ? 'A quick check is ready for you.' : `${dueCount} quick checks are ready for you.`}
+            {dueCount === 1 ? `A ${check} is ready for you.` : `${dueCount} ${check}s are ready for you.`}
           </span>{' '}
           <span className="underline">Start now</span>
         </Link>
@@ -108,7 +111,7 @@ export default async function MyTrainingPage() {
                 )}
                 {retestWaiting && !allVerified && (
                   <span className="inline-block rounded bg-amber-50 px-2 py-1 text-sm text-amber-800">
-                    Re-test on its way. Check your email.
+                    Your {check} is on its way. Check your email.
                   </span>
                 )}
               </Link>

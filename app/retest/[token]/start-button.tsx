@@ -41,7 +41,7 @@ export function StartButton({ token }: { token: string }) {
       <button
         onClick={start}
         disabled={busy}
-        className="rounded bg-gray-900 px-5 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded bg-brand hover:opacity-90 px-5 py-3 font-medium text-brand-fg disabled:opacity-50"
       >
         {busy ? 'Starting...' : 'Start the check'}
       </button>

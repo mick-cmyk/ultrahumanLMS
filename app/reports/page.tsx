@@ -55,7 +55,7 @@ export default async function ReportsPage() {
               <span className="text-sm text-gray-500">{r.assigned} assigned</span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-4">
-              <Stat label="Completed" value={r.completed} total={r.assigned} colour="bg-blue-600" />
+              <Stat label="Completed" value={r.completed} total={r.assigned} colour="bg-brand" />
               <Stat
                 label="Retention-verified"
                 value={r.retention_verified}

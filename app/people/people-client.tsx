@@ -153,7 +153,7 @@ export function PeopleClient({
           <button
             onClick={runImport}
             disabled={importing || !csv.trim()}
-            className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-brand hover:opacity-90 px-4 py-2 text-sm font-medium text-brand-fg disabled:opacity-50"
           >
             {importing ? 'Importing...' : 'Import'}
           </button>

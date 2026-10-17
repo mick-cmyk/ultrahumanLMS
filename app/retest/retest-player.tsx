@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { getBrand } from '@/brands';
+
+const check = getBrand().voice.checkName;
 
 type Question = { id: string; text: string; options: string[]; lesson_id: string };
 type Result = {
@@ -54,14 +57,14 @@ export function RetestPlayer({
         setError(
           body.error ??
             (body.reason === 'already_passed'
-              ? 'This re-test has already been passed.'
-              : 'Something went wrong marking your re-test.')
+              ? `This ${check} has already been passed.`
+              : `Something went wrong marking your ${check}.`)
         );
         return;
       }
       setResult(body);
     } catch {
-      setError('Something went wrong marking your re-test.');
+      setError(`Something went wrong marking your ${check}.`);
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +113,7 @@ export function RetestPlayer({
             <p className="text-sm">
               {result.capped
                 ? "We'll leave it there for now. Your manager can help you finish this off."
-                : "We'll send you another quick check in a few days."}
+                : `We'll send you another ${check} in a few days.`}
             </p>
           </div>
         )}
@@ -125,7 +128,7 @@ export function RetestPlayer({
     <div className="mx-auto max-w-lg space-y-4 py-6">
       <div>
         <p className="text-sm text-gray-500">{courseTitle}</p>
-        <h1 className="text-xl font-semibold">{moduleTitle}: quick check</h1>
+        <h1 className="text-xl font-semibold">{moduleTitle}: {check}</h1>
         <p className="mt-1 text-gray-600">
           A few quick questions to lock this in. It takes about two minutes.
         </p>
@@ -159,9 +162,9 @@ export function RetestPlayer({
         <button
           type="submit"
           disabled={submitting || Object.keys(answers).length < questions.length}
-          className="rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+          className="rounded bg-brand hover:opacity-90 px-4 py-2 font-medium text-brand-fg disabled:opacity-50"
         >
-          {submitting ? 'Checking...' : 'Submit re-test'}
+          {submitting ? 'Checking...' : 'Submit answers'}
         </button>
       </form>
     </div>

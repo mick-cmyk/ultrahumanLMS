@@ -248,7 +248,7 @@ export function StructureClient({
             placeholder="Suburb (optional)"
             className="rounded border border-gray-300 px-2 py-1 text-sm"
           />
-          <button onClick={add} className="rounded bg-gray-900 px-3 py-1 text-sm text-white">
+          <button onClick={add} className="rounded bg-brand hover:opacity-90 px-3 py-1 text-sm text-brand-fg">
             Add
           </button>
         </div>

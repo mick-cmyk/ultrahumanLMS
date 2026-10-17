@@ -1,8 +1,11 @@
 'use client';
 
+import { getBrand } from '@/brands';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+
+const brand = getBrand();
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -60,7 +63,7 @@ function LoginForm() {
         <h1 className="text-xl font-semibold">Check your email</h1>
         <p className="text-gray-600">
           We&apos;ve sent a login link to <strong>{email}</strong>. Tap it on
-          this device and you&apos;re in — no password needed.
+          this device and you&apos;re in. No password needed.
         </p>
       </div>
     );
@@ -68,7 +71,7 @@ function LoginForm() {
 
   return (
     <div className="mt-10 max-w-sm space-y-4">
-      <h1 className="text-xl font-semibold">Log in</h1>
+      <h1 className="text-xl font-semibold">Log in to {brand.name}</h1>
       <p className="text-gray-600">
         Enter your work email and we&apos;ll send you a login link.
       </p>
@@ -94,7 +97,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={status === 'sending'}
-          className="w-full rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+          className="w-full rounded bg-brand hover:opacity-90 px-4 py-2 font-medium text-brand-fg disabled:opacity-50"
         >
           {status === 'sending' ? 'Sending…' : 'Send me a login link'}
         </button>

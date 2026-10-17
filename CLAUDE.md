@@ -18,6 +18,12 @@ One `units` tree per deployment: supplier (root) > Level 1 retail brand > Level 
 - **No em dashes** in UI copy or email. Australian English, plain language. The readers are retail staff.
 - Schema changes are migration files in `supabase/migrations/`. Never instruct dashboard changes.
 
+## Brands
+
+Each deployment is one brand, chosen by `NEXT_PUBLIC_BRAND` (default `kenshu`). A brand is one file in `brands/` (name, primary colour, logo, support email, links, voice, level labels) registered in `brands/index.ts`. The UI uses the Tailwind tokens `bg-brand`, `text-brand-fg`, `text-brand-ink`, `bg-brand-soft`, derived and contrast-checked from the primary colour in `brands/colour.ts`. Never hardcode a brand colour or name in a component. Status colours (green, amber, red) are fixed on purpose. Per-retailer logos and colours are data on units in the database, not brand files.
+
+After editing a brand file run `npm run brand:build` (regenerates the magic-link templates) and `npm run brand:secrets -- --app-url https://...` (prints the edge function secrets so emails match the app).
+
 ## Demo data
 
 Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `app_settings.environment` is `demo` or `production` (default production) and the database refuses demo rows in production.
@@ -27,7 +33,7 @@ Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `
 - `npm run admin:bootstrap -- --email x --name "Y" --supplier "Z"` creates the first real admin.
 - `npm run golive:check [-- --finish]` fails while any demo row exists; `--finish` switches the database to production.
 
-Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat.
+Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat. `npm run login:link -- --email x@kenshu-demo.invalid` prints a sign-in link for a demo user.
 
 ## Scheduled jobs
 

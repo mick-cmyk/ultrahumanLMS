@@ -1,1 +1,26 @@
 @import 'tailwindcss';
+
+/* Brand tokens. layout.tsx sets the real values on <html> from brands/<brand>.ts
+   (derived and contrast-checked in brands/colour.ts); these are fallbacks only.
+   Use bg-brand + text-brand-fg for fills, text-brand-ink for brand-coloured text
+   on white, bg-brand-soft for tints. Status colours (green, amber, red) stay
+   fixed: they mean the same thing in every brand. */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+}
+
+:root {
+  --brand: #111827;
+  --brand-fg: #ffffff;
+  --brand-ink: #111827;
+  --brand-soft: #f3f4f6;
+}
+
+/* Visible keyboard focus everywhere, in the brand colour. */
+:focus-visible {
+  outline: 2px solid var(--brand-ink);
+  outline-offset: 2px;
+}
