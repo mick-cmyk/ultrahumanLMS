@@ -23,3 +23,6 @@ LMS Build Out/email-previews/
 *.log
 .DS_Store
 Thumbs.db
+
+# Visual Studio
+.vs/
