@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:db": "supabase test db",
+    "test:db:local": "tsx scripts/db-test.ts",
     "email:preview": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
     "email:send": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
     "email:deploy": "supabase functions deploy retest-dispatch weekly-digest --no-verify-jwt --use-api",
@@ -23,6 +24,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.2",
+    "fast-xml-parser": "^5.12.1",
+    "fflate": "^0.8.3",
     "next": "^16.2.10",
     "player.js": "^0.1.0",
     "react": "^19.2.7",
@@ -30,6 +33,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
@@ -38,7 +42,8 @@
     "supabase": "^2.109.1",
     "tailwindcss": "^4.3.2",
     "tsx": "^4.23.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
