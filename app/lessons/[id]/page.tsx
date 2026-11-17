@@ -82,6 +82,7 @@ export default async function LessonPage({
       ) : (
       <VideoPlayer
         lessonId={lesson.id}
+        title={lesson.title}
         durationSeconds={lesson.duration_seconds}
         watchThreshold={Number(lesson.watch_threshold)}
         embedUrl={embedUrl}

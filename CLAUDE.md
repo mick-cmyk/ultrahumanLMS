@@ -42,6 +42,8 @@ Hourly pg_cron calls two edge functions; they act only in the Sydney send window
 ## Testing
 
 - Database tests: `supabase/tests/*.test.sql`, run inside `begin; ... rollback;`. Old tests are in `supabase/tests_archive/`, old migrations in `supabase/migrations_archive/`.
+- `npm run test:db:local` runs every migration and database test in PGlite (in-memory Postgres, no Docker, no project). Use it before applying a migration anywhere; it stands in for Supabase's auth and storage, so still run `supabase test db` on a real project before go-live.
+- `npm test` runs the TypeScript unit tests (Vitest, `tests/*.test.ts`).
 - `npm run typecheck` before every commit.
 - Verify features as a real role (learner, viewer, manager, admin), not as the service role.
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -17,22 +18,37 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Only learners can be signed in this way. A token for anyone else is refused,
 // so a forwarded or leaked link can never open a manager or admin account.
 
-// Best-effort rate limit per client address. Serverless instances do not share
-// memory, so this slows a single hot instance; the real protection is that
-// tokens are 256-bit random values, single use, and expire in 7 days.
+// Rate limit per client address, shared across serverless instances through
+// the database (hit_rate_limit, 20261118000200_rate_limit.sql). The address is
+// hashed before it's stored. If that call fails, the old per-instance memory
+// limit still applies. Either way the real protection is that tokens are
+// 256-bit random values, single use, and expire in 7 days.
+const LIMIT_PER_MINUTE = 10;
 const hits = new Map<string, number[]>();
-function limited(key: string): boolean {
+function limitedInMemory(key: string): boolean {
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((t) => now - t < 60_000);
   recent.push(now);
   hits.set(key, recent);
   if (hits.size > 5000) hits.clear();
-  return recent.length > 10;
+  return recent.length > LIMIT_PER_MINUTE;
+}
+
+async function limited(service: ReturnType<typeof createServiceClient>, ip: string): Promise<boolean> {
+  const key = 'retest-start:' + createHash('sha256').update(ip).digest('hex').slice(0, 32);
+  const { data, error } = await service.rpc('hit_rate_limit', {
+    p_key: key,
+    p_limit: LIMIT_PER_MINUTE,
+    p_window_seconds: 60,
+  });
+  if (error) return limitedInMemory(ip);
+  return data === false;
 }
 
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (limited(ip)) {
+  const service = createServiceClient();
+  if (await limited(service, ip)) {
     return NextResponse.json({ error: 'Too many tries. Wait a minute and try again.' }, { status: 429 });
   }
 
@@ -46,7 +62,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid link' }, { status: 400 });
   }
 
-  const service = createServiceClient();
   const { data: check, error: checkErr } = await service.rpc('check_retest_token', {
     p_token: token,
   });

@@ -217,7 +217,7 @@ export function AssignForm({
             {searchResults.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-2 p-2 text-sm">
                 <span>
-                  {u.full_name ?? u.email} <span className="text-gray-400">{u.email}</span>
+                  {u.full_name ?? u.email} <span className="text-gray-500">{u.email}</span>
                 </span>
                 <span className="flex gap-1">
                   <button
@@ -305,7 +305,7 @@ export function AssignForm({
       <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 pt-4">
         <p className="text-lg">
           {reachLoading ? (
-            <span className="text-gray-400">Counting...</span>
+            <span className="text-gray-500">Counting...</span>
           ) : reach === null ? (
             <span className="text-red-600">Couldn&apos;t work out the reach</span>
           ) : (
@@ -366,7 +366,7 @@ function Facet({
           </button>
         </span>
       </div>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="text-xs text-gray-500">{hint}</p>}
       <div className="max-h-64 space-y-1 overflow-y-auto rounded border border-gray-200 p-2">
         {children}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { getBrand } from '@/brands';
 
@@ -37,6 +37,8 @@ export function RetestPlayer({
   courseTitle: string;
   questions: Question[];
 }) {
+  // The form is replaced by the result; move focus there so it's announced.
+  const resultRef = useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<GradeResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -70,6 +72,10 @@ export function RetestPlayer({
     }
   }
 
+  useEffect(() => {
+    if (result) resultRef.current?.focus();
+  }, [result]);
+
   if (result) {
     const missed = result.results.filter((r) => !r.correct);
     const revisit = Array.from(
@@ -77,7 +83,12 @@ export function RetestPlayer({
     );
 
     return (
-      <div className="mx-auto max-w-lg space-y-4 py-6">
+      <div
+        ref={resultRef}
+        tabIndex={-1}
+        aria-live="polite"
+        className="mx-auto max-w-lg space-y-4 py-6 outline-none"
+      >
         <h1 className="text-xl font-semibold">{moduleTitle}</h1>
         {result.passed ? (
           <div className="space-y-2 rounded border border-green-200 bg-green-50 p-4 text-green-900">
@@ -143,10 +154,11 @@ export function RetestPlayer({
             {q.options.map((opt, oi) => (
               <label
                 key={oi}
-                className="flex items-center gap-2 rounded border border-gray-200 p-2"
+                className="flex min-h-11 cursor-pointer items-center gap-3 rounded border border-gray-200 p-2"
               >
                 <input
                   type="radio"
+                  className="h-5 w-5 flex-none"
                   name={q.id}
                   checked={answers[q.id] === oi}
                   onChange={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
@@ -157,8 +169,15 @@ export function RetestPlayer({
           </fieldset>
         ))}
 
-        {error && <p className="text-sm text-red-700">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
+        {Object.keys(answers).length < questions.length && (
+          <p className="text-sm text-gray-600">Answer every question to submit.</p>
+        )}
         <button
           type="submit"
           disabled={submitting || Object.keys(answers).length < questions.length}

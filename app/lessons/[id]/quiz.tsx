@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Question = { id: string; text: string; options: string[] };
@@ -42,6 +42,11 @@ export function Quiz({
   const [loading, setLoading] = useState(unlocked);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Marking result is announced and focused, so screen reader users hear it.
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (result) resultRef.current?.focus();
+  }, [result]);
 
   const shuffle = useCallback((qs: Question[]) => {
     const a = [...qs];
@@ -142,10 +147,13 @@ export function Quiz({
       <div className="flex items-baseline justify-between">
         <h2 className="font-medium">Quiz</h2>
         {passed && (
-          <span className="text-sm font-medium text-green-700">✓ Passed</span>
+          <span className="text-sm font-medium text-green-700">
+            <span aria-hidden="true">✓ </span>Passed
+          </span>
         )}
       </div>
 
+      <div ref={resultRef} tabIndex={-1} aria-live="polite" className="outline-none">
       {result && (
         <div
           className={`rounded p-3 text-sm ${
@@ -157,12 +165,13 @@ export function Quiz({
           You got {result.correct_count} of {result.total} right (
           {Math.round(result.score * 100)}%).{' '}
           {result.passed
-            ? 'Nice work — that counts as passed.'
+            ? 'Nice work. That counts as passed.'
             : `You need ${Math.round(
                 result.pass_mark * 100
-              )}% to pass. Have another go — the explanations below will help.`}
+              )}% to pass. Have another go. The explanations below will help.`}
         </div>
       )}
+      </div>
 
       {quiz && (
         <form onSubmit={submit} className="space-y-5">
@@ -180,7 +189,7 @@ export function Quiz({
                   return (
                     <label
                       key={oi}
-                      className={`flex items-center gap-2 rounded border p-2 ${
+                      className={`flex min-h-11 cursor-pointer items-center gap-3 rounded border p-2 ${
                         isCorrect
                           ? 'border-green-500 bg-green-50'
                           : isWrongChosen
@@ -190,6 +199,7 @@ export function Quiz({
                     >
                       <input
                         type="radio"
+                        className="h-5 w-5 flex-none"
                         name={q.id}
                         checked={isChosen}
                         disabled={Boolean(result)}
@@ -211,9 +221,17 @@ export function Quiz({
             );
           })}
 
-          {error && <p className="text-sm text-red-700">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-red-700">
+              {error}
+            </p>
+          )}
 
           {!result ? (
+            <div className="space-y-2">
+            {Object.keys(answers).length < order.length && (
+              <p className="text-sm text-gray-600">Answer every question to submit.</p>
+            )}
             <button
               type="submit"
               disabled={submitting || Object.keys(answers).length < order.length}
@@ -221,6 +239,7 @@ export function Quiz({
             >
               {submitting ? 'Checking…' : 'Submit answers'}
             </button>
+            </div>
           ) : (
             !result.passed && (
               <button

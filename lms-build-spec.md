@@ -12,7 +12,7 @@ The differentiator is the retention layer. Every other LMS stops at "completed".
 
 ## What this is not (v1)
 
-No SCORM. No certificates. No discussion forums. No mobile app (responsive web only). No payment/billing layer. No AI features. No live sessions. If it's not in this spec, it's not in v1.
+~~No SCORM.~~ SCORM 1.2 import and export added 18 Nov 2026 (decided 29 Oct; see `docs/HANDOVER-CHAT-2026-11-18.md` section 2). No certificates. No discussion forums. No mobile app (responsive web only). No payment/billing layer. No AI features. No live sessions. If it's not in this spec, it's not in v1.
 
 ---
 

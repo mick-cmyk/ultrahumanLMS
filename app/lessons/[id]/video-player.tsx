@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 // feed the same tracking so the watch -> quiz -> complete loop works either way.
 export function VideoPlayer({
   lessonId,
+  title,
   durationSeconds,
   watchThreshold,
   embedUrl,
@@ -23,6 +24,8 @@ export function VideoPlayer({
   initiallyWatched,
 }: {
   lessonId: string;
+  /** Lesson title, for the video frame's accessible name. */
+  title: string;
   durationSeconds: number | null;
   watchThreshold: number;
   embedUrl: string | null;
@@ -156,6 +159,7 @@ export function VideoPlayer({
           <iframe
             ref={iframeRef}
             src={embedUrl!}
+            title={`${title} (video)`}
             className="h-full w-full"
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             allowFullScreen
@@ -176,7 +180,7 @@ export function VideoPlayer({
               className="h-full w-full"
             />
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Sample clip - swap in the real Bunny video when it&apos;s ready.
           </p>
         </div>
@@ -192,17 +196,26 @@ export function VideoPlayer({
         <>
           <div className="flex items-center justify-between text-sm">
             {watched ? (
-              <span className="font-medium text-green-700">✓ Watched</span>
+              <span className="font-medium text-green-700">
+                <span aria-hidden="true">✓ </span>Watched
+              </span>
             ) : (
               <span className="text-gray-600">
-                You&apos;ve watched {Math.round(pct * 100)}% — counts as watched at{' '}
+                You&apos;ve watched {Math.round(pct * 100)}%. It counts as watched at{' '}
                 {Math.round(watchThreshold * 100)}%.
               </span>
             )}
           </div>
-          <div className="h-2 w-full rounded bg-gray-100">
+          <div
+            role="progressbar"
+            aria-label="How much of the video you've watched"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(pct * 100)}
+            className="h-2 w-full rounded bg-gray-100"
+          >
             <div
-              className={`h-2 rounded ${watched ? 'bg-green-600' : 'bg-gray-400'}`}
+              className={`h-2 rounded ${watched ? 'bg-green-600' : 'bg-gray-600'}`}
               style={{ width: `${Math.round(pct * 100)}%` }}
             />
           </div>

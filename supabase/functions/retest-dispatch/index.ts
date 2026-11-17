@@ -44,7 +44,6 @@ const numEnv = (name: string, fallback: number) => {
 const REMINDER_DELAY_DAYS = numEnv('REMINDER_DELAY_DAYS', 3);
 const RETEST_MAX_CYCLES = numEnv('RETEST_MAX_CYCLES', 3);
 const TOKEN_TTL_DAYS = numEnv('RETEST_TOKEN_TTL_DAYS', 7);
-const RETEST_QUESTION_HINT = 4; // informational only; sampling happens at play time
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -83,7 +82,9 @@ async function sendEmail(opts: {
       kind: 'p',
       text:
         `${opts.reminder ? 'Just a reminder: you' : 'You'} finished ${opts.moduleTitle} ` +
-        `a few days ago. Here's your ${CHECK_NAME} to lock it in: ${RETEST_QUESTION_HINT} questions.`,
+        // No question count here: the sample size lives in lib/constants.ts and
+        // the email can't see it, so it would drift. Matches the check page's wording.
+        `a few days ago. Here's your ${CHECK_NAME} to lock it in: a few quick questions.`,
     },
     { kind: 'cta', label: `Start the ${CHECK_NAME}`, href: opts.link },
     {

@@ -131,7 +131,7 @@ export function TeamClient({ staff, places }: { staff: Staff[]; places: Place[] 
             {staff.map((s) => (
               <tr
                 key={s.id}
-                className={`border-b border-gray-100 ${s.active ? '' : 'text-gray-400'}`}
+                className={`border-b border-gray-100 ${s.active ? '' : 'text-gray-500'}`}
               >
                 <td className="py-2 pr-4">{s.full_name ?? '-'}</td>
                 <td className="py-2 pr-4">{s.email}</td>
