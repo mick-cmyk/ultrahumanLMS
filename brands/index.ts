@@ -1,16 +1,16 @@
 // Picks the brand for this deployment. Set NEXT_PUBLIC_BRAND to a key below;
-// it defaults to 'kenshu'. To add a brand: copy brands/kenshu.ts, register it
+// it defaults to 'octolab'. To add a brand: copy brands/octolab.ts, register it
 // here, and set NEXT_PUBLIC_BRAND on that brand's Vercel project.
 
-import kenshu from './kenshu';
+import octolab from './octolab';
 import ultrahuman from './ultrahuman';
 import { deriveTokens, isHex6, type BrandTokens } from './colour';
 import type { BrandConfig } from './types';
 
-const BRANDS: Record<string, BrandConfig> = { kenshu, ultrahuman };
+const BRANDS: Record<string, BrandConfig> = { octolab, ultrahuman };
 
 export function getBrand(id: string | undefined = process.env.NEXT_PUBLIC_BRAND): BrandConfig {
-  const key = id || 'kenshu';
+  const key = id || 'octolab';
   const brand = BRANDS[key];
   if (!brand) {
     throw new Error(

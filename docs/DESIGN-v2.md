@@ -98,12 +98,12 @@ Why it keeps coming back today: the pgTAP tests call `raise exception 'Seed data
 Changes:
 
 - Every demo row carries `demo_tag` (units, users, courses, assignments; children cascade). All demo emails end in `.invalid`, which can never receive mail, enforced by a check: demo rows must use `.invalid`, and `.invalid` addresses must be demo rows.
-- `app_settings.environment` is `demo` or `production`, set once per deployment. Kenshu's `lms.kenshu.com.au` is `demo`. UltraHuman is `production` from day one. A trigger refuses to insert a demo row when the environment is `production`.
+- `app_settings.environment` is `demo` or `production`, set once per deployment. Octolab's `lms.octolab.com.au` is `demo`. UltraHuman is `production` from day one. A trigger refuses to insert a demo row when the environment is `production`.
 - `npm run seed:load -- --brand <name>` creates demo data for one brand, tagged. It refuses to run against a `production` environment.
 - `npm run seed:purge` removes every tagged row, including the matching `auth.users`, and prints counts. It can run any time.
 - The go-live script fails if `select count(*) from users where demo_tag is not null` is above zero in a production environment. This is also a line in the deploy checklist.
 - pgTAP tests build their own fixtures inside the test transaction and roll back. They never read the seed. Playwright tests create `e2e`-tagged users in setup and purge them in teardown.
-- Demo data per brand is separate (`seed/kenshu.ts`, `seed/ultrahuman.ts`), so UltraHuman's demo tree matches its own levels.
+- Demo data per brand is separate (`seed/octolab.ts`, `seed/ultrahuman.ts`), so UltraHuman's demo tree matches its own levels.
 
 ## 5. Build order
 
@@ -121,8 +121,8 @@ Changes:
 
 1. Level 1 (retail brand) is read-only. Level 2 and Level 3 can add, deactivate and move staff within their subtree. Only the supplier admin assigns courses.
 2. Floor staff sit in exactly one store. Managers can have several scope units.
-3. The supplier root is one per deployment. The Kenshu demo site models a made-up supplier so it never shows a real client's name.
-4. In the Kenshu demo, "Jason / NARTA" becomes a viewer with several brand scopes, only if you want to demo that.
+3. The supplier root is one per deployment. The Octolab demo site models a made-up supplier so it never shows a real client's name.
+4. In the Octolab demo, "Jason / NARTA" becomes a viewer with several brand scopes, only if you want to demo that.
 5. Level names for UltraHuman: "Retail brand", "Training manager / state rep", "Store manager", "Floor staff". Supplier-side admins are "Admin".
 
 ## Folder check

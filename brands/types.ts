@@ -19,7 +19,7 @@ export type BrandConfig = {
   voice: {
     /** What the delayed re-test is called to staff, lower case: "quick check". */
     checkName: string;
-    /** Last line of emails: "The Kenshu team". */
+    /** Last line of emails: "The Octolab team". */
     emailSignoff: string;
   };
   /** Display names for each level of the unit tree. */

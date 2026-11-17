@@ -1,8 +1,8 @@
 // Print a one-off sign-in link for any existing user, without sending email.
 // For testing demo accounts, whose .invalid addresses cannot receive mail.
 //
-//   npm run login:link -- --email admin@kenshu-demo.invalid
-//   npm run login:link -- --email store.manager@kenshu-demo.invalid --base https://lms.kenshu.com.au
+//   npm run login:link -- --email admin@octolab-demo.invalid
+//   npm run login:link -- --email store.manager@octolab-demo.invalid --base https://lms.octolab.com.au
 //
 // Open the printed link in a browser (a private window is best, so you do not
 // replace your own session). It uses the app's /auth/confirm route. Needs the

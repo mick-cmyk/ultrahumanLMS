@@ -1,11 +1,11 @@
-// Demo data for the Kenshu testing site (and any other demo deployment).
+// Demo data for the Octolab testing site (and any other demo deployment).
 //
 //   npm run seed:load            build the made-up supplier, staff, course, progress
 //   npm run seed:load -- --mark-demo
 //                                same, and flip a brand-new database to 'demo' first
 //   npm run seed:purge           delete every row this script created
 //
-// Everything is tagged demo_tag = 'kenshu-demo'. Demo emails end in .invalid
+// Everything is tagged demo_tag = 'octolab-demo'. Demo emails end in .invalid
 // (the database enforces that), so no real inbox is ever mailed. The database
 // also refuses demo rows while app_settings.environment = 'production', and
 // the go-live check (npm run golive:check) refuses to finish while any exist.
@@ -29,8 +29,8 @@ import {
   posterDataUri,
 } from './content/attach-selling';
 
-const TAG = 'kenshu-demo';
-const DOMAIN = 'kenshu-demo.invalid';
+const TAG = 'octolab-demo';
+const DOMAIN = 'octolab-demo.invalid';
 const db = adminClient();
 
 type UnitSeed = {
@@ -46,7 +46,7 @@ type UnitSeed = {
 // A made-up supplier with two retail brands. Stores carry a state so the
 // "by state" reporting and state-targeted assignments have something to chew on.
 const UNITS: UnitSeed[] = [
-  { key: 'sup', parent: null, kind: 'supplier', name: 'Kenshu Demo Supplier', brand_color: '#0f766e' },
+  { key: 'sup', parent: null, kind: 'supplier', name: 'Octolab Demo Supplier', brand_color: '#0f766e' },
   { key: 'harvest', parent: 'sup', kind: 'brand', name: 'Harvest Electronics', brand_color: '#b45309' },
   { key: 'h-vic', parent: 'harvest', kind: 'region', name: 'Harvest Victoria', state: 'VIC' },
   { key: 'h-nsw', parent: 'harvest', kind: 'region', name: 'Harvest New South Wales', state: 'NSW' },
@@ -309,9 +309,15 @@ async function load(flags: Set<string>) {
   );
 }
 
+// Demo data loaded before the Octolab rename carries this tag. Purge clears it
+// too, so an existing demo database can be reloaded under the new name.
+const LEGACY_TAGS = ['kenshu-demo'];
+
 async function purge() {
-  const result = await must(db.rpc('purge_demo_data', { p_tag: TAG }), 'Purging demo data');
-  console.log('Purged:', JSON.stringify(result));
+  for (const tag of [TAG, ...LEGACY_TAGS]) {
+    const result = await must(db.rpc('purge_demo_data', { p_tag: tag }), `Purging demo data (${tag})`);
+    console.log(`Purged ${tag}:`, JSON.stringify(result));
+  }
   const counts = await must(db.rpc('demo_row_counts'), 'Counting leftovers');
   console.log('Remaining demo rows:', JSON.stringify(counts));
 }
@@ -321,7 +327,7 @@ async function main() {
   const command = positional[0];
   if (command === 'load') await load(flags);
   else if (command === 'purge') await purge();
-  else die('Usage: seed/kenshu.ts load [--mark-demo] | purge');
+  else die('Usage: seed/octolab.ts load [--mark-demo] | purge');
 }
 
 main().catch((e) => die(String(e)));

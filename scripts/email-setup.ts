@@ -37,7 +37,7 @@ async function main() {
 
   const appUrl = (opts['app-url'] ?? process.env.APP_URL ?? '').replace(/\/$/, '');
   if (!appUrl || appUrl.startsWith('http://localhost')) {
-    die('Pass --app-url with the real site address, for example --app-url https://lms.kenshu.com.au');
+    die('Pass --app-url with the real site address, for example --app-url https://lms.octolab.com.au');
   }
 
   if (live && (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM)) {

@@ -1,6 +1,6 @@
 # CLAUDE.md: Retail training LMS
 
-Staff watch short videos, pass a quiz, then prove they still know it with a re-test a few days later. Brand-agnostic: each brand gets its own Supabase project and Vercel project, with colours, name, links and email voice set by configuration. First deployment is the Kenshu demo (`lms.kenshu.com.au`); UltraHuman follows.
+Staff watch short videos, pass a quiz, then prove they still know it with a re-test a few days later. Brand-agnostic: each brand gets its own Supabase project and Vercel project, with colours, name, links and email voice set by configuration. First deployment is the Octolab demo (`lms.octolab.com.au`; brand site octolab.com.au, renamed from Kenshu on 17 Nov 2026); UltraHuman follows.
 
 `docs/DESIGN-v2.md` describes the model. `docs/HANDOVER.md` is the current status. `lms-build-spec.md` is the original spec; where it disagrees with DESIGN-v2 (groups layer, org/store tables, ltree), DESIGN-v2 wins. The path column is `uuid[]`, not ltree.
 
@@ -20,7 +20,7 @@ One `units` tree per deployment: supplier (root) > Level 1 retail brand > Level 
 
 ## Brands
 
-Each deployment is one brand, chosen by `NEXT_PUBLIC_BRAND` (default `kenshu`). A brand is one file in `brands/` (name, primary colour, logo, support email, links, voice, level labels) registered in `brands/index.ts`. The UI uses the Tailwind tokens `bg-brand`, `text-brand-fg`, `text-brand-ink`, `bg-brand-soft`, derived and contrast-checked from the primary colour in `brands/colour.ts`. Never hardcode a brand colour or name in a component. Status colours (green, amber, red) are fixed on purpose. Per-retailer logos and colours are data on units in the database, not brand files.
+Each deployment is one brand, chosen by `NEXT_PUBLIC_BRAND` (default `octolab`). A brand is one file in `brands/` (name, primary colour, logo, support email, links, voice, level labels) registered in `brands/index.ts`. The UI uses the Tailwind tokens `bg-brand`, `text-brand-fg`, `text-brand-ink`, `bg-brand-soft`, derived and contrast-checked from the primary colour in `brands/colour.ts`. Never hardcode a brand colour or name in a component. Status colours (green, amber, red) are fixed on purpose. Per-retailer logos and colours are data on units in the database, not brand files.
 
 After editing a brand file run `npm run brand:build` (regenerates the magic-link templates) and `npm run brand:secrets -- --app-url https://...` (prints the edge function secrets so emails match the app).
 
@@ -28,12 +28,12 @@ After editing a brand file run `npm run brand:build` (regenerates the magic-link
 
 Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `app_settings.environment` is `demo` or `production` (default production) and the database refuses demo rows in production.
 
-- `npm run seed:load -- --mark-demo` builds the Kenshu demo tree, staff, course, assignments and progress (flips a brand-new database to demo mode).
+- `npm run seed:load -- --mark-demo` builds the Octolab demo tree, staff, course, assignments and progress (flips a brand-new database to demo mode).
 - `npm run seed:purge` deletes everything the seed created.
 - `npm run admin:bootstrap -- --email x --name "Y" --supplier "Z"` creates the first real admin.
 - `npm run golive:check [-- --finish]` fails while any demo row exists; `--finish` switches the database to production.
 
-Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat. `npm run login:link -- --email x@kenshu-demo.invalid` prints a sign-in link for a demo user.
+Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat. `npm run login:link -- --email x@octolab-demo.invalid` prints a sign-in link for a demo user.
 
 ## Scheduled jobs
 

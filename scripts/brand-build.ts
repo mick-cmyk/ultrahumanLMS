@@ -2,7 +2,7 @@
 //
 //   npm run brand:build                 write the magic-link email templates
 //   npm run brand:build -- --brand ultrahuman
-//   npm run brand:secrets -- --app-url https://lms.kenshu.com.au
+//   npm run brand:secrets -- --app-url https://lms.octolab.com.au
 //                                       print the edge function secrets to set
 //
 // Source of truth is brands/<brand>.ts. Run brand:build after editing a brand
