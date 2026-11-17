@@ -29,6 +29,7 @@ const NAV: Record<Role, { href: string; label: string }[]> = {
     { href: '/assign', label: 'Assign' },
     { href: '/people', label: 'People' },
     { href: '/structure', label: 'Structure' },
+    { href: '/import', label: 'Import SCORM' },
   ],
 };
 

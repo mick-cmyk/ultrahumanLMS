@@ -78,6 +78,7 @@ select throws_ok($$insert into public.scorm_attempts (user_id, lesson_id, lesson
   '42501', null, 'learner cannot write attempts directly');
 
 select is(public.get_scorm_launch('e1000000-0000-0000-0000-000000000001') ->> 'launch_href', 'index.html', 'launch info for an assigned scorm lesson');
+select is(public.get_scorm_launch('e1000000-0000-0000-0000-000000000001') ->> 'preview', 'false', 'an assigned learner is not in preview');
 select ok(public.get_scorm_launch('e1000000-0000-0000-0000-000000000001') -> 'attempt' = 'null'::jsonb, 'no attempt yet');
 select ok(public.get_scorm_launch('e1000000-0000-0000-0000-000000000002') is null, 'no launch info for a video lesson');
 
@@ -146,6 +147,9 @@ select lives_ok($$insert into storage.objects (bucket_id, name) values ('scorm',
 select throws_ok($$insert into storage.objects (bucket_id, name) values ('scorm','loose-file.html')$$,
   '42501', null, 'uploads must sit under a package id');
 select lives_ok($$insert into public.scorm_packages (title, launch_href) values ('New','index.html')$$, 'admin can register a package');
+select is(public.get_scorm_launch('e1000000-0000-0000-0000-000000000001') ->> 'preview', 'true', 'admin can preview a lesson they are not assigned');
+select throws_ok($$select public.record_scorm_commit('e1000000-0000-0000-0000-000000000001', '{"lesson_status":"passed"}')$$,
+  'P0001', 'lesson not found or not assigned to you', 'admin preview saves nothing');
 reset role;
 
 -- --------------------------------------------------------------- privileges

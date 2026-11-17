@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { signedEmbedUrl } from '@/lib/bunny';
 import { VideoPlayer } from './video-player';
 import { Quiz } from './quiz';
+import { ScormPlayer } from './scorm-player';
 
 export default async function LessonPage({
   params,
@@ -20,7 +21,7 @@ export default async function LessonPage({
     supabase
       .from('lessons')
       .select(
-        'id, title, bunny_video_id, sample_video_url, image_url, script, duration_seconds, watch_threshold, modules(id, title, course_id, courses(id, title))'
+        'id, title, kind, scorm_package_id, bunny_video_id, sample_video_url, image_url, script, duration_seconds, watch_threshold, modules(id, title, course_id, courses(id, title))'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -33,6 +34,14 @@ export default async function LessonPage({
   ]);
 
   if (!lesson) notFound();
+
+  // SCORM lessons: launch info comes from get_scorm_launch, which also checks
+  // the course is published and assigned to this learner.
+  const scormLaunch =
+    lesson.kind === 'scorm'
+      ? (await supabase.rpc('get_scorm_launch', { p_lesson_id: lesson.id })).data
+      : null;
+  if (lesson.kind === 'scorm' && !scormLaunch) notFound();
 
   const embedUrl = signedEmbedUrl(lesson.bunny_video_id);
   // Without generated db types, supabase-js types to-one joins as arrays
@@ -54,6 +63,23 @@ export default async function LessonPage({
         <h1 className="mt-2 text-xl font-semibold">{lesson.title}</h1>
       </div>
 
+      {scormLaunch ? (
+        <ScormPlayer
+          lessonId={lesson.id}
+          title={lesson.title}
+          packageId={scormLaunch.package_id}
+          launchHref={scormLaunch.launch_href}
+          initiallyComplete={Boolean(progress?.watched_at)}
+          preview={Boolean(scormLaunch.preview)}
+          launch={{
+            studentId: scormLaunch.student_id,
+            studentName: scormLaunch.student_name ?? '',
+            masteryScore:
+              scormLaunch.mastery_score == null ? null : Number(scormLaunch.mastery_score),
+            attempt: scormLaunch.attempt,
+          }}
+        />
+      ) : (
       <VideoPlayer
         lessonId={lesson.id}
         durationSeconds={lesson.duration_seconds}
@@ -64,6 +90,7 @@ export default async function LessonPage({
         initialPct={progress?.watch_pct ?? 0}
         initiallyWatched={Boolean(progress?.watched_at)}
       />
+      )}
 
       {lesson.script && (
         <details className="rounded border border-gray-200 p-4" open>
@@ -79,11 +106,13 @@ export default async function LessonPage({
         </details>
       )}
 
-      <Quiz
-        lessonId={lesson.id}
-        unlocked={Boolean(progress?.watched_at)}
-        alreadyPassed={Boolean(progress?.quiz_passed_at)}
-      />
+      {!scormLaunch && (
+        <Quiz
+          lessonId={lesson.id}
+          unlocked={Boolean(progress?.watched_at)}
+          alreadyPassed={Boolean(progress?.quiz_passed_at)}
+        />
+      )}
     </div>
   );
 }

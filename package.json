@@ -19,7 +19,9 @@
     "login:link": "tsx --env-file=.env.local scripts/login-link.ts",
     "brand:build": "tsx scripts/brand-build.ts",
     "brand:secrets": "tsx scripts/brand-build.ts secrets",
-    "email:setup": "tsx --env-file=.env.local scripts/email-setup.ts"
+    "email:setup": "tsx --env-file=.env.local scripts/email-setup.ts",
+    "test": "vitest run",
+    "scorm:export": "tsx --env-file-if-exists=.env.local scripts/scorm-export.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

@@ -162,7 +162,9 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- get_scorm_launch: everything the player needs to start or resume. Null when
--- the lesson is not a SCORM lesson the caller may take.
+-- the lesson is not a SCORM lesson the caller may take. Admins may open any
+-- SCORM lesson to check it runs: 'preview' is true when they aren't assigned
+-- it, and the player then saves nothing (record_scorm_commit would refuse).
 -- ---------------------------------------------------------------------------
 create function public.get_scorm_launch(p_lesson_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = public as
@@ -172,22 +174,24 @@ declare
   v_pkg public.scorm_packages;
   v_att public.scorm_attempts;
   v_name text;
+  v_assigned boolean;
 begin
   if v_user is null then
     raise exception 'not authenticated';
   end if;
 
-  select p.* into v_pkg
+  select p.*, (c.published and public.user_sees_course(c.id))
+    into v_pkg.id, v_pkg.title, v_pkg.version, v_pkg.launch_href, v_pkg.manifest,
+         v_pkg.file_count, v_pkg.total_bytes, v_pkg.uploaded_by, v_pkg.created_at,
+         v_assigned
   from public.lessons l
   join public.modules m on m.id = l.module_id
   join public.courses c on c.id = m.course_id
   join public.scorm_packages p on p.id = l.scorm_package_id
   where l.id = p_lesson_id
-    and l.kind = 'scorm'
-    and c.published
-    and public.user_sees_course(c.id);
+    and l.kind = 'scorm';
 
-  if v_pkg.id is null then
+  if v_pkg.id is null or not (v_assigned or public.app_role() = 'admin') then
     return null;
   end if;
 
@@ -202,6 +206,7 @@ begin
     'mastery_score', v_pkg.manifest -> 'mastery_score',
     'student_id', v_user,
     'student_name', v_name,
+    'preview', not v_assigned,
     'attempt', case when v_att.user_id is null then null else jsonb_build_object(
       'lesson_status', v_att.lesson_status,
       'score_raw', v_att.score_raw,

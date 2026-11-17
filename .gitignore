@@ -29,3 +29,6 @@ Thumbs.db
 
 .vercel
 .env*
+
+# SCORM exports (npm run scorm:export)
+exports/
