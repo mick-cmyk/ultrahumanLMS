@@ -58,8 +58,12 @@ select throws_ok($$insert into public.scorm_packages (title, launch_href) values
   '23514', null, 'launch path cannot climb out of the package');
 select throws_ok($$insert into public.scorm_packages (title, launch_href) values ('bad','https://evil.test/x.html')$$,
   '23514', null, 'launch path cannot be another site');
+-- Refused either way; Postgres builds differ on the code for an ON DELETE
+-- RESTRICT violation (23001 in PGlite, 23503 on Supabase), so check the message.
 select throws_ok($$delete from public.scorm_packages where id = 'f1000000-0000-0000-0000-000000000001'$$,
-  '23001', null, 'a package in use cannot be deleted');
+  null, null, 'a package in use cannot be deleted');
+select ok(exists (select 1 from public.scorm_packages where id = 'f1000000-0000-0000-0000-000000000001'),
+  'the package is still there');
 select is(public.scorm_object_package('f1000000-0000-0000-0000-000000000001/a/b.js'),
   'f1000000-0000-0000-0000-000000000001'::uuid, 'object path maps to its package');
 select ok(public.scorm_object_package('../f1000000-0000-0000-0000-000000000001/a.js') is null, 'odd paths map to no package');

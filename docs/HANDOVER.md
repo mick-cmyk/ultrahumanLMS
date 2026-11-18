@@ -1,14 +1,20 @@
-# Handover (updated 18 Nov 2026)
+# Handover (updated 19 Nov 2026)
 
 Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Older notes (NARTA, JB Hi-Fi, groups and orgs, the no-login token page) are superseded and live in git history.
 
-## To do (as of 18 Nov 2026)
+## Database status (19 Nov 2026)
 
-Merged from Mick's chat handover (`docs/HANDOVER-CHAT-2026-11-18.md`) and the Octolab rename. Code rename is done (uncommitted at time of writing).
+- **LMS Demo V1** (`nfghpuwtdokoleobjekq`) sits in the Pro org of Supabase login **test@mickrussell.com**. Reconnect the claude.ai Supabase connector with that login for database work.
+- **Migration drift repaired.** The live schema was compared object by object against PGlite running the repo's 13 migrations (all 47 functions, policies, columns, constraints, triggers and grants match), then `supabase_migrations.schema_migrations` was renumbered to the repo file versions. Re-check with `scripts/schema-fingerprint.sql` if in doubt.
+- **Applied:** `20261118000100_scorm` and `20261118000200_rate_limit`, recorded under those versions. All 15 records match `supabase/migrations/`.
+- **Tests on the live project**, each in a transaction rolled back by a final raised error: core 69/69, learning 84/84, reporting 58/58, rate limit 12/12, SCORM 49/50. The one SCORM miss was the error code for a refused delete (23503 on Supabase, 23001 in PGlite); the test now checks the refusal, not the code.
+- **Demo data purged.** The Kenshu demo (11 units, 11 staff, 1 course, 4 assignments) is gone. Only Mick's real admin login (mick@mickrussell.com) remains, detached from any unit (it pointed at the demo supplier). Database is still in `demo` mode. When new demo data is loaded, attach that login to the new supplier unit.
+
+## To do (as of 19 Nov 2026)
 
 **Mick (account access):**
-1. **Find the Supabase account that now owns LMS Demo V1** (`nfghpuwtdokoleobjekq`, transferred 24 Oct) and reconnect the Supabase connector with that login. Until then nothing can be checked or run against the database.
-2. Then: `npm run seed:purge` (also clears data still tagged `kenshu-demo`) and `npm run seed:load -- --mark-demo` to reload the demo as Octolab. Purge deletes demo staff, course and progress; it can't be undone.
+1. ~~Find the Supabase account~~ Done 19 Nov: test@mickrussell.com.
+2. **New demo data** (Mick to decide content). The old seed still works if wanted: `npm run seed:load -- --mark-demo`. Then put Mick's admin login back under the supplier unit.
 3. **Domain `lms.octolab.com.au` (confirmed).** Vercel domain; Supabase Site URL, redirect URLs and hosted magic-link template (paste the regenerated `supabase/templates/magic_link_hosted.html`); then `npm run email:setup -- --app-url https://lms.octolab.com.au`.
 4. **Email sender** (park until we do email work in the app): verify an `octolab.com.au` sending domain in Resend (DNS records, then wait), then change `EMAIL_FROM` in `.env.local` (still `Kenshu Training <training@mail.kenshu.com.au>`) and in the edge-function secrets.
 5. Confirm whether the orange brand (`a93cfa2`) was ever deployed with `npx vercel deploy --prod`, and whether the hosted magic-link template was pasted into Supabase.
@@ -17,8 +23,8 @@ Merged from Mick's chat handover (`docs/HANDOVER-CHAT-2026-11-18.md`) and the Oc
 6. **Octolab logo** is saved at `public/brand/octolab-logo.png` (square octopus mark). Set `logoUrl` in `brands/octolab.ts` to `https://lms.octolab.com.au/brand/octolab-logo.png` once that site is live, then `npm run brand:build`.
 7. **Colour**: keeping the orange `#ED4E05` for now; check it against octolab.com.au and swap if the site uses a different primary.
 8. Brand-file fields still to confirm with Mick (don't invent addresses): `supportEmail`, `emailFromName`, `voice.emailSignoff`.
-9. **SCORM 1.2: built 18 Nov, not yet on a real database.** Apply migrations `20261118000100_scorm.sql` and `20261118000200_rate_limit.sql` once the Supabase account is back (item 1). Then: import a package on `/import` as an admin, preview it, assign it, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one. See "SCORM" below.
-10. **Migration version drift** (still open, needs database access): LMS Demo V1 stamped its own migration versions. Compare `supabase migration list` against `supabase/migrations/` and repair before applying the two new migrations.
+9. **SCORM 1.2: on the live database since 19 Nov** (migrations applied, tests pass there). Still to do by hand: import a package on `/import` as an admin, preview it, assign it, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one. See "SCORM" below.
+10. ~~Migration version drift~~ Repaired 19 Nov (see Database status). Note for next time: the MCP `apply_migration` stamps its own version; renumber the record to the file's version straight after.
 11. Captions: the sample clips have no `<track>`, and Bunny captions need turning on per video when real videos arrive.
 
 ## SCORM (built 18 Nov 2026)
@@ -27,7 +33,7 @@ Merged from Mick's chat handover (`docs/HANDOVER-CHAT-2026-11-18.md`) and the Oc
 - **Player**: the app's own SCORM 1.2 runtime (`lib/scorm/runtime.ts`) as `window.API`; package files served same-origin from `/scorm-files/<package>/...` with byte ranges; access decided by storage RLS from the learner's assignments, no service role. `passed`/`completed` stamps `lesson_progress`, so reports need no change. Never steps back from complete. SCORM-only modules get no re-test.
 - **Export**: `npm run scorm:export -- --course <id>` (or `--seed attach-selling`). Self-contained zip, vanilla player with the app's rules. Answers are inside the package by necessity; no week-later check. Bunny videos need MP4 fallback on and `BUNNY_STREAM_CDN_HOST`.
 - **Trust**: package files run same-origin, so a package can do what an app page can. Only admins upload; treat packages like code.
-- **Verified**: 50 database checks (`v2_scorm.test.sql`, in PGlite), unit tests for manifest/runtime/unpack/export, and the exported demo course run in a browser against the real runtime (scrubbing doesn't count, full play unlocks the quiz, all lessons report passed/100, finish sends session time, resume works). **Not yet verified**: anything against Supabase's real storage and auth, and the import page end to end.
+- **Verified**: 50 database checks (`v2_scorm.test.sql`, in PGlite), unit tests for manifest/runtime/unpack/export, and the exported demo course run in a browser against the real runtime (scrubbing doesn't count, full play unlocks the quiz, all lessons report passed/100, finish sends session time, resume works). On the live project (19 Nov) the database side also passed against Supabase's real storage policies and auth. **Not yet verified**: the import page and player end to end in a browser against the live project.
 
 ## Done
 
