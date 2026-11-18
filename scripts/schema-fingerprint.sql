@@ -1,6 +1,9 @@
--- One row per schema object in public, with a hash of its definition. Run on a
--- live project and on PGlite (scripts/db-test.ts --fingerprint) and diff the
--- two to check the database matches the migration files.
+-- One row per schema object in public, with a hash of its definition. Run it
+-- on a live project and on a PGlite copy built from supabase/migrations/, then
+-- compare, to check the database matches the migration files. Function bodies
+-- differ if migrations were applied with comments stripped; for those, compare
+-- md5 of prosrc with `--` comments and whitespace removed instead. Postgres 18
+-- also lists NOT NULL as constraints, so filter contype <> 'n' across versions.
 with objs as (
   select 'function' as kind, p.oid::regprocedure::text as name,
          md5(regexp_replace(pg_get_functiondef(p.oid), '\s+', ' ', 'g')) as h
