@@ -11,3 +11,7 @@ filesv2.zip
 *.pdf
 LMS Build Out
 .claude
+.env*
+!.env.example
+exports
+supabase/.temp

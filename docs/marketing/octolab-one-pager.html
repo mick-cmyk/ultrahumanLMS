@@ -1,0 +1,277 @@
+<!doctype html><html lang="en-AU" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Octolab One-Pager</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a printed sales sheet. Ink-on-paper body, one orange band for the loop, a sticker logo. */
+:root {
+  --paper: #fbfbf9;
+  --paper-2: #f1f0ec;
+  --ink: #17171a;
+  --ink-soft: #55555c;
+  --rule: #dcdbd5;
+  --orange: #ED4E05;
+  --orange-ink: #b83a00;
+  --on-orange: #ffffff;
+  --sticker: #ffffff;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141416; --paper-2: #1d1d20; --ink: #f2f1ed; --ink-soft: #a8a7a2;
+    --rule: #33333a; --orange: #ff6a26; --orange-ink: #ff8a52; --on-orange: #1a0a02;
+    --sticker: #f6f5f1; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #141416; --paper-2: #1d1d20; --ink: #f2f1ed; --ink-soft: #a8a7a2;
+  --rule: #33333a; --orange: #ff6a26; --orange-ink: #ff8a52; --on-orange: #1a0a02;
+  --sticker: #f6f5f1; color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@page { size: 1100px 3750px; margin: 0; }
+html { background: var(--paper); }
+@media print { .phone { box-shadow: none; } }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); line-height: 1.05; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--orange-ink); }
+a:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; border-radius: 4px; }
+.label { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* Masthead */
+.mast { padding-block: 22px; border-bottom: 1px solid var(--rule); }
+.mast .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { width: 46px; height: 46px; object-fit: contain; background: var(--sticker); border-radius: 50%; padding: 4px; }
+.brand b { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; }
+
+/* Hero */
+.hero { padding-block: 56px 48px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .9fr); gap: 48px; align-items: center; }
+.hero h1 { font-size: clamp(40px, 6.2vw, 74px); font-weight: 800; letter-spacing: -.035em; }
+.hero h1 em { font-style: normal; color: var(--orange); }
+.hero .lede { margin-top: 22px; font-size: 20px; max-width: 34ch; color: var(--ink-soft); }
+.hero .lede strong { color: var(--ink); }
+.cta-row { margin-top: 28px; display: flex; gap: 14px 22px; flex-wrap: wrap; align-items: center; }
+.btn { display: inline-block; background: var(--ink); color: var(--paper); font-weight: 700; text-decoration: none; padding: 14px 22px; border-radius: 999px; }
+.btn:hover { background: var(--orange); color: var(--on-orange); }
+.cta-row .url { font-family: var(--mono); font-size: 14px; color: var(--ink-soft); }
+
+/* Phone mock */
+.phone { justify-self: center; width: min(310px, 100%); background: var(--paper-2); border: 1px solid var(--rule); border-radius: 34px; padding: 14px; transform: rotate(2deg); box-shadow: 0 30px 60px -30px rgba(0,0,0,.35); }
+.screen { background: var(--paper); border-radius: 24px; padding: 18px 16px 20px; display: grid; gap: 14px; }
+.screen .top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--ink-soft); }
+.video { aspect-ratio: 16 / 10; max-width: 100%; border-radius: 14px; background: linear-gradient(135deg, var(--ink) 0%, #3a3a42 100%); position: relative; display: grid; place-items: center; }
+.video::after { content: ""; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; margin-left: 6px; }
+.video span { position: absolute; right: 10px; bottom: 8px; font-family: var(--mono); font-size: 11px; color: #fff; background: rgba(0,0,0,.5); padding: 2px 6px; border-radius: 6px; }
+.screen h3 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.bar { height: 8px; border-radius: 99px; background: var(--rule); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 92%; background: var(--orange); }
+.meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-soft); }
+.check { background: var(--orange); color: var(--on-orange); border-radius: 14px; padding: 12px 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+
+/* The loop band */
+.loop { background: var(--orange); color: var(--on-orange); padding-block: 56px; }
+.loop .label { color: var(--on-orange); opacity: .8; }
+.loop h2 { font-size: clamp(30px, 4vw, 46px); font-weight: 800; letter-spacing: -.03em; margin-top: 10px; max-width: 20ch; }
+.steps { margin-top: 36px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; list-style: none; padding: 0; counter-reset: s; }
+.steps li { border-top: 2px solid currentColor; padding-top: 16px; display: grid; gap: 8px; align-content: start; }
+.steps .day { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+.steps h3 { font-size: 26px; font-weight: 700; }
+.steps p { max-width: 32ch; }
+
+/* Sections */
+section.block { padding-block: 64px; border-bottom: 1px solid var(--rule); }
+.split { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; align-items: start; }
+.block h2 { font-size: clamp(28px, 3.6vw, 42px); font-weight: 800; letter-spacing: -.03em; margin-top: 10px; }
+.block .intro { margin-top: 16px; color: var(--ink-soft); max-width: 46ch; }
+
+/* Org tree */
+.tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.tree li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; padding-block: 14px; border-bottom: 1px dashed var(--rule); }
+.tree li:last-child { border-bottom: 0; }
+.tree .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); margin-top: 6px; }
+.tree li:nth-child(1) .dot { background: var(--ink); }
+.tree li:nth-child(2) { padding-left: 18px; }
+.tree li:nth-child(3) { padding-left: 36px; }
+.tree li:nth-child(4) { padding-left: 54px; }
+.tree li:nth-child(5) { padding-left: 72px; }
+.tree li:nth-child(5) .dot { background: var(--orange); border-color: var(--orange); }
+.tree b { display: block; font-family: var(--display); font-size: 19px; }
+.tree span { color: var(--ink-soft); font-size: 15px; }
+
+/* Features */
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px 40px; margin-top: 40px; }
+.feature { display: grid; gap: 8px; align-content: start; }
+.feature h3 { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.feature p { color: var(--ink-soft); font-size: 16px; }
+
+/* Report strip */
+.report { margin-top: 0; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 18px; padding: 22px; display: grid; gap: 14px; }
+.report-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 15px; }
+.report-row .name { font-weight: 700; }
+.report-row .sub { color: var(--ink-soft); font-size: 13px; }
+.pill { font-family: var(--mono); font-size: 12px; padding: 4px 10px; border-radius: 99px; font-weight: 500; white-space: nowrap; }
+.ok { background: #d8f2df; color: #145c2c; }
+.due { background: #fdecc8; color: #7a4b00; }
+.late { background: #fadcd9; color: #8a1d14; }
+.report .foot { font-size: 13px; color: var(--ink-soft); border-top: 1px solid var(--rule); padding-top: 12px; }
+.tabnum { font-variant-numeric: tabular-nums; }
+
+/* Close */
+.close { padding-block: 72px; }
+.close .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; }
+.close h2 { font-size: clamp(32px, 4.6vw, 54px); font-weight: 800; letter-spacing: -.035em; max-width: 18ch; }
+.close p { margin-top: 14px; color: var(--ink-soft); max-width: 48ch; }
+.sticker { width: 150px; height: 150px; background: var(--sticker); border-radius: 50%; padding: 14px; transform: rotate(-8deg); box-shadow: 0 16px 30px -18px rgba(0,0,0,.45); }
+.sticker img { width: 100%; height: 100%; object-fit: contain; }
+footer { padding-block: 22px 40px; font-size: 13px; color: var(--ink-soft); border-top: 1px solid var(--rule); }
+footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 820px) {
+  .hero .wrap, .split, .close .wrap { grid-template-columns: minmax(0, 1fr); }
+  .steps, .features { grid-template-columns: minmax(0, 1fr); }
+  .phone { transform: none; }
+  .sticker { width: 110px; height: 110px; }
+}
+@media (min-width: 821px) and (max-width: 1000px) {
+  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .phone { transition: transform .4s ease; }
+  .phone:hover { transform: rotate(0deg); }
+}
+</style>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="brand"><img src="brand/octolab-logo.png" alt="Octolab octopus logo"><b>Octolab</b></div>
+    <span class="label">Retail training platform</span>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <p class="label">For suppliers who train retail floor staff</p>
+      <h1 style="margin-top:14px">Training your floor staff will <em>still remember next week.</em></h1>
+      <p class="lede">Short videos on their phone. A quick check straight after. Then <strong>five days later, a fresh check lands in their inbox</strong> to prove it stuck. You see who actually knows your product, store by store.</p>
+      <div class="cta-row">
+        <a class="btn" href="https://octolab.com.au" target="_blank" rel="noopener">Book a demo</a>
+        <span class="url">octolab.com.au</span>
+      </div>
+    </div>
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <div class="top"><span>Your training</span><span>2 of 3</span></div>
+        <div class="video"><span>4:12</span></div>
+        <h3>Attach selling: the second item</h3>
+        <div class="bar"><i></i></div>
+        <div class="meta"><span>92% watched</span><span>Done</span></div>
+        <div class="check"><span>Quick check</span><span>5 questions</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="loop">
+  <div class="wrap">
+    <p class="label">How it works</p>
+    <h2>Watch it, check it, then prove it stuck.</h2>
+    <ol class="steps">
+      <li>
+        <span class="day">Day 1</span>
+        <h3>Watch</h3>
+        <p>A short video on any phone, between customers. Skipping to the end doesn't count. They need to see at least 90% of it.</p>
+      </li>
+      <li>
+        <span class="day">Day 1</span>
+        <h3>Check</h3>
+        <p>A few plain-language questions straight after. Pass and the lesson is done. Miss and they can watch again.</p>
+      </li>
+      <li>
+        <span class="day">Day 6</span>
+        <h3>Prove it</h3>
+        <p>An email arrives at 8am Sydney time with a fresh check. One tap to start, no password. This is the score that shows what they really know.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap split">
+    <div>
+      <p class="label">Built the way retail is organised</p>
+      <h2>Everyone sees their own patch. Head office sees it all.</h2>
+      <p class="intro">Set up your retail partners, state reps and stores once. Assign a course to a whole brand, a state, or a handful of stores, and new staff in those stores pick it up automatically.</p>
+    </div>
+    <ol class="tree">
+      <li><span class="dot"></span><div><b>Supplier</b><span>You. Build and assign courses, see every result.</span></div></li>
+      <li><span class="dot"></span><div><b>Retail brand</b><span>Read-only reports for their stores.</span></div></li>
+      <li><span class="dot"></span><div><b>Training manager or state rep</b><span>Manage staff and chase results across their region.</span></div></li>
+      <li><span class="dot"></span><div><b>Store manager</b><span>Add new starters, see who's done what.</span></div></li>
+      <li><span class="dot"></span><div><b>Floor staff</b><span>Get a link, watch, answer. That's it.</span></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <p class="label">What you get</p>
+    <h2>Simple for staff. Straight answers for you.</h2>
+    <div class="features">
+      <div class="feature"><h3>No passwords</h3><p>Staff sign in from a link in their email. Nothing to remember, nothing for store managers to reset.</p></div>
+      <div class="feature"><h3>Made for phones</h3><p>Big buttons, short lessons, plain English. Works on whatever phone is in their pocket.</p></div>
+      <div class="feature"><h3>Your brand on it</h3><p>Your name, colours and logo throughout, plus each retail partner's own logo on their staff's screens.</p></div>
+      <div class="feature"><h3>Monday digest</h3><p>Managers get one email a week with who's finished, who's due and who's behind. No logging in to find out.</p></div>
+      <div class="feature"><h3>Bring your courses</h3><p>Already have SCORM 1.2 packages? Import them as they are. Need to hand a course to a retailer's own system? Export it.</p></div>
+      <div class="feature"><h3>Proof, not clicks</h3><p>Reports show who passed the later check, not just who opened the video. That's the number worth acting on.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap split">
+    <div>
+      <p class="label">Reporting</p>
+      <h2>Know which stores can actually sell it.</h2>
+      <p class="intro">Every result rolls up from staff to store to region to brand. Spot the store that needs a visit before launch day, not after.</p>
+    </div>
+    <div class="report" role="img" aria-label="Example report showing three stores with their re-test results">
+      <div class="label">Example: Product launch course</div>
+      <div class="report-row"><div><div class="name">Chadstone</div><div class="sub tabnum">11 of 12 staff proven</div></div><span class="pill ok tabnum">92% passed</span></div>
+      <div class="report-row"><div><div class="name">Parramatta</div><div class="sub tabnum">6 of 9 staff proven, 3 checks due</div></div><span class="pill due tabnum">67% passed</span></div>
+      <div class="report-row"><div><div class="name">Carindale</div><div class="sub tabnum">2 of 8 staff proven</div></div><span class="pill late tabnum">25% passed</span></div>
+      <div class="foot">Sample figures for illustration.</div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="wrap">
+    <div>
+      <h2>Your product knowledge, in every store, still there next week.</h2>
+      <p>We'll set up a demo with your own course and a few of your stores, so you can see it the way your staff will.</p>
+      <div class="cta-row">
+        <a class="btn" href="https://octolab.com.au" target="_blank" rel="noopener">Talk to Octolab</a>
+        <span class="url">octolab.com.au</span>
+      </div>
+    </div>
+    <div class="sticker" aria-hidden="true"><img src="brand/octolab-logo.png" alt=""></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Octolab. Short training that sticks.</span>
+    <span>lms.octolab.com.au</span>
+  </div>
+</footer>
+</html>
