@@ -5,15 +5,17 @@ import { getProfile, homeFor } from '@/lib/auth';
 import { BrandBand } from '@/components/brand-band';
 import { RETEST_MAX_CYCLES } from '@/lib/constants';
 import { getBrand } from '@/brands';
+import { Landing } from '@/components/landing';
 
 const check = getBrand().voice.checkName;
 
-// My training. Courses arrive already filtered by row level security: a course
+// Logged out: the public landing page with a login box. Logged in: my training.
+// Courses arrive already filtered by row level security: a course
 // row is visible only if it is published and an assignment rule matches this
 // user.
 export default async function MyTrainingPage() {
   const profile = await getProfile();
-  if (!profile) redirect('/login');
+  if (!profile) return <Landing />;
   // Admins and viewers have no personal training; send them to reporting.
   if (homeFor(profile.role) !== '/') redirect(homeFor(profile.role));
 

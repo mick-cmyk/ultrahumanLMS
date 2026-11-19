@@ -14,6 +14,8 @@ export type BrandConfig = {
   primaryColor: string;
   /** Absolute or site-relative logo URL, or null to show the name as text. */
   logoUrl: string | null;
+  /** Optional square brand mark for the public landing page. Site-relative is fine. */
+  markUrl?: string | null;
   supportEmail: string | null;
   links: { website?: string; help?: string; privacy?: string; terms?: string };
   voice: {

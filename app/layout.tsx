@@ -77,6 +77,11 @@ export default async function RootLayout({
                 </Link>
               ))}
             </nav>
+            {!profile && (
+              <Link href="/login" className="ml-auto text-sm font-medium text-brand-ink underline">
+                Log in
+              </Link>
+            )}
             {profile && (
               <form action="/auth/signout" method="post" className="ml-auto">
                 <button

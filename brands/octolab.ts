@@ -12,6 +12,7 @@ const octolab: BrandConfig = {
   tagline: 'Short training that sticks.',
   primaryColor: '#ED4E05',
   logoUrl: null,
+  markUrl: '/brand/octolab-logo.png',
   supportEmail: null,
   links: { website: 'https://octolab.com.au' },
   voice: {
@@ -24,7 +25,7 @@ const octolab: BrandConfig = {
     region: 'Training manager or state rep',
     store: 'Store',
   },
-  emailFromName: 'Octolab Training',
+  emailFromName: 'LMS Demo by Octolab',
 };
 
 export default octolab;

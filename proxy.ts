@@ -44,11 +44,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // The home page shows the public landing page when logged out.
   // The emailed re-test link is /retest/<token>. That landing page and the
   // route behind its Start button must work logged out, because they are what
   // creates the session. Everything else under /retest (the check itself) and
   // grading at /api/retest need a login.
   const isPublic =
+    pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth') ||
     /^\/retest\/[^/]+\/?$/.test(pathname) ||

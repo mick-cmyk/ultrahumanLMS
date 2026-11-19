@@ -237,7 +237,7 @@ otp_expiry = 3600
 # Magic link email carries a token_hash so login works in any browser on any
 # device (no PKCE same-browser requirement). Verified by /auth/confirm.
 [auth.email.template.magic_link]
-subject = "Your login link for P1xel Forge Training"
+subject = "Your LMS Demo by Octolab"
 content_path = "./supabase/templates/magic_link.html"
 
 # Use a production-ready SMTP server
