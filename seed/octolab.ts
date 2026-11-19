@@ -1,6 +1,6 @@
 // Demo data for the Octolab testing site (and any other demo deployment).
 //
-//   npm run seed:load            build the made-up supplier, staff, course, progress
+//   npm run seed:load            build the made-up transport company, staff, courses, progress
 //   npm run seed:load -- --mark-demo
 //                                same, and flip a brand-new database to 'demo' first
 //   npm run seed:purge           delete every row this script created
@@ -21,13 +21,8 @@ import {
   parseArgs,
   setEnvironment,
 } from '../scripts/db';
-import {
-  COURSE_DESCRIPTION,
-  COURSE_TITLE,
-  LESSONS,
-  MODULE_TITLE,
-  posterDataUri,
-} from './content/attach-selling';
+import { posterDataUri } from './content/attach-selling';
+import { COURSES, type CourseDef } from './content/transport-safety';
 
 const TAG = 'octolab-demo';
 const DOMAIN = 'octolab-demo.invalid';
@@ -43,21 +38,39 @@ type UnitSeed = {
   brand_color?: string;
 };
 
-// A made-up supplier with two retail brands. Stores carry a state so the
-// "by state" reporting and state-targeted assignments have something to chew on.
+// A made-up transport and logistics company: head office, three states, four
+// depots, and under each depot a warehouse team and a drivers team. Every unit
+// below head office carries a state so "by state" reports and state-targeted
+// assignments work (the rule uses the state on the person's own unit).
 const UNITS: UnitSeed[] = [
-  { key: 'sup', parent: null, kind: 'supplier', name: 'Octolab Demo Supplier', brand_color: '#0f766e' },
-  { key: 'harvest', parent: 'sup', kind: 'brand', name: 'Harvest Electronics', brand_color: '#b45309' },
-  { key: 'h-vic', parent: 'harvest', kind: 'region', name: 'Harvest Victoria', state: 'VIC' },
-  { key: 'h-nsw', parent: 'harvest', kind: 'region', name: 'Harvest New South Wales', state: 'NSW' },
-  { key: 'h-mel', parent: 'h-vic', kind: 'store', name: 'Harvest Melbourne CBD', state: 'VIC', suburb: 'Melbourne' },
-  { key: 'h-ric', parent: 'h-vic', kind: 'store', name: 'Harvest Richmond', state: 'VIC', suburb: 'Richmond' },
-  { key: 'h-syd', parent: 'h-nsw', kind: 'store', name: 'Harvest Sydney CBD', state: 'NSW', suburb: 'Sydney' },
-  { key: 'north', parent: 'sup', kind: 'brand', name: 'Northgate Appliances', brand_color: '#1d4ed8' },
-  { key: 'n-qld', parent: 'north', kind: 'region', name: 'Northgate Queensland', state: 'QLD' },
-  { key: 'n-bne', parent: 'n-qld', kind: 'store', name: 'Northgate Brisbane', state: 'QLD', suburb: 'Brisbane' },
-  { key: 'n-gc', parent: 'n-qld', kind: 'store', name: 'Northgate Gold Coast', state: 'QLD', suburb: 'Southport' },
+  { key: 'hq', parent: null, kind: 'supplier', name: 'Redgum Freight', brand_color: '#9a3412' },
+  { key: 'vic', parent: 'hq', kind: 'region', name: 'Victoria', state: 'VIC' },
+  { key: 'nsw', parent: 'hq', kind: 'region', name: 'New South Wales', state: 'NSW' },
+  { key: 'qld', parent: 'hq', kind: 'region', name: 'Queensland', state: 'QLD' },
+  { key: 'dan', parent: 'vic', kind: 'store', name: 'Dandenong depot', state: 'VIC', suburb: 'Dandenong South' },
+  { key: 'lav', parent: 'vic', kind: 'store', name: 'Laverton depot', state: 'VIC', suburb: 'Laverton North' },
+  { key: 'wet', parent: 'nsw', kind: 'store', name: 'Wetherill Park depot', state: 'NSW', suburb: 'Wetherill Park' },
+  { key: 'eag', parent: 'qld', kind: 'store', name: 'Eagle Farm depot', state: 'QLD', suburb: 'Eagle Farm' },
+  { key: 'dan-w', parent: 'dan', kind: 'team', name: 'Dandenong warehouse', state: 'VIC', suburb: 'Dandenong South' },
+  { key: 'dan-d', parent: 'dan', kind: 'team', name: 'Dandenong drivers', state: 'VIC', suburb: 'Dandenong South' },
+  { key: 'lav-w', parent: 'lav', kind: 'team', name: 'Laverton warehouse', state: 'VIC', suburb: 'Laverton North' },
+  { key: 'lav-d', parent: 'lav', kind: 'team', name: 'Laverton drivers', state: 'VIC', suburb: 'Laverton North' },
+  { key: 'wet-w', parent: 'wet', kind: 'team', name: 'Wetherill Park warehouse', state: 'NSW', suburb: 'Wetherill Park' },
+  { key: 'wet-d', parent: 'wet', kind: 'team', name: 'Wetherill Park drivers', state: 'NSW', suburb: 'Wetherill Park' },
+  { key: 'eag-w', parent: 'eag', kind: 'team', name: 'Eagle Farm warehouse', state: 'QLD', suburb: 'Eagle Farm' },
+  { key: 'eag-d', parent: 'eag', kind: 'team', name: 'Eagle Farm drivers', state: 'QLD', suburb: 'Eagle Farm' },
 ];
+
+// Progress for one person on one course:
+//   proven   finished 9 days ago, later check passed (the number that counts)
+//   sent     finished 9 days ago, check emailed 4 days ago, not done yet
+//   due      finished 6 days ago, check due now
+//   done     finished 2 days ago, check not due yet
+//   started  watched the first lesson only
+//   (absent) not started
+type Status = 'proven' | 'sent' | 'due' | 'done' | 'started';
+type CourseKey = keyof typeof COURSES;
+type Progress = Partial<Record<CourseKey, Status>>;
 
 type UserSeed = {
   key: string;
@@ -66,22 +79,72 @@ type UserSeed = {
   role: 'learner' | 'viewer' | 'manager' | 'admin';
   unit: string;
   scopes?: string[];
+  progress?: Progress;
 };
 
+// Shorthand: manual handling (everyone) plus fatigue (drivers) or forklift (warehouse).
+const pick = (pairs: [CourseKey, Status | undefined][]): Progress =>
+  Object.fromEntries(pairs.filter(([, s]) => s)) as Progress;
+const P = (mh?: Status) => pick([['manualHandling', mh]]);
+const D = (mh?: Status, fat?: Status) => pick([['manualHandling', mh], ['fatigue', fat]]);
+const W = (mh?: Status, fk?: Status) => pick([['manualHandling', mh], ['forklift', fk]]);
+
 const USERS: UserSeed[] = [
-  { key: 'admin', email: 'admin', name: 'Alex Admin', role: 'admin', unit: 'sup' },
-  { key: 'l1', email: 'brand.viewer', name: 'Harriet Harvest (Level 1, read only)', role: 'viewer', unit: 'harvest', scopes: ['harvest'] },
-  { key: 'l2', email: 'state.rep', name: 'Vic Rep (Level 2)', role: 'manager', unit: 'h-vic', scopes: ['h-vic'] },
-  { key: 'l3', email: 'store.manager', name: 'Sam Storey (Level 3)', role: 'manager', unit: 'h-mel', scopes: ['h-mel'] },
-  { key: 'f1', email: 'floor.one', name: 'Jordan Floor', role: 'learner', unit: 'h-mel' },
-  { key: 'f2', email: 'floor.two', name: 'Casey Floor', role: 'learner', unit: 'h-mel' },
-  { key: 'f3', email: 'floor.three', name: 'Riley Floor', role: 'learner', unit: 'h-ric' },
-  { key: 'f4', email: 'floor.four', name: 'Morgan Floor', role: 'learner', unit: 'h-syd' },
-  { key: 'f5', email: 'floor.five', name: 'Taylor Floor', role: 'learner', unit: 'n-bne' },
-  { key: 'f6', email: 'floor.six', name: 'Quinn Floor', role: 'learner', unit: 'n-gc' },
-  // Supplier -> individual, no middle man.
-  { key: 'direct', email: 'direct.staff', name: 'Dana Direct', role: 'learner', unit: 'sup' },
+  // Head office
+  { key: 'owner', email: 'owner', name: 'Grace Whitfield (Owner, read only)', role: 'viewer', unit: 'hq', scopes: ['hq'] },
+  { key: 'safety', email: 'safety.manager', name: 'Daniel Okafor (Safety Manager)', role: 'admin', unit: 'hq' },
+  { key: 'payroll', email: 'payroll', name: 'Jess Lee (Payroll, head office)', role: 'learner', unit: 'hq', progress: P('proven') },
+  // State operations managers
+  { key: 'ops-vic', email: 'ops.vic', name: 'Priya Nair (Operations Manager, VIC)', role: 'manager', unit: 'vic', scopes: ['vic'], progress: P('proven') },
+  { key: 'ops-nsw', email: 'ops.nsw', name: 'Tom Brennan (Operations Manager, NSW)', role: 'manager', unit: 'nsw', scopes: ['nsw'], progress: P('done') },
+  { key: 'ops-qld', email: 'ops.qld', name: 'Leilani Fifita (Operations Manager, QLD)', role: 'manager', unit: 'qld', scopes: ['qld'] },
+  // Depot managers
+  { key: 'dm-dan', email: 'depot.dandenong', name: 'Mel Costa (Depot Manager, Dandenong)', role: 'manager', unit: 'dan', scopes: ['dan'], progress: P('proven') },
+  { key: 'dm-lav', email: 'depot.laverton', name: 'Arjun Mehta (Depot Manager, Laverton)', role: 'manager', unit: 'lav', scopes: ['lav'], progress: P('proven') },
+  { key: 'dm-wet', email: 'depot.wetherill', name: 'Sophie Tran (Depot Manager, Wetherill Park)', role: 'manager', unit: 'wet', scopes: ['wet'], progress: P('sent') },
+  { key: 'dm-eag', email: 'depot.eaglefarm', name: 'Craig Duncan (Depot Manager, Eagle Farm)', role: 'manager', unit: 'eag', scopes: ['eag'], progress: P('started') },
+  // Team supervisors
+  { key: 'sup-dan-w', email: 'wh.super.dandenong', name: 'Nikos Papadopoulos (Warehouse Supervisor)', role: 'manager', unit: 'dan-w', scopes: ['dan-w'], progress: W('proven', 'proven') },
+  { key: 'sup-dan-d', email: 'fleet.super.dandenong', name: 'Kylie Russo (Transport Supervisor)', role: 'manager', unit: 'dan-d', scopes: ['dan-d'], progress: D('proven', 'proven') },
+  { key: 'sup-wet-w', email: 'wh.super.wetherill', name: 'Hamid Rahimi (Warehouse Supervisor)', role: 'manager', unit: 'wet-w', scopes: ['wet-w'], progress: W('proven', 'due') },
+  { key: 'sup-eag-d', email: 'fleet.super.eaglefarm', name: 'Shane Walker (Transport Supervisor)', role: 'manager', unit: 'eag-d', scopes: ['eag-d'], progress: D('sent') },
+
+  // Dandenong: the depot that has got it
+  { key: 'w1', email: 'wh.dandenong.1', name: 'Ella Murphy', role: 'learner', unit: 'dan-w', progress: W('proven', 'proven') },
+  { key: 'w2', email: 'wh.dandenong.2', name: 'Lachlan Kelly', role: 'learner', unit: 'dan-w', progress: W('proven', 'proven') },
+  { key: 'w3', email: 'wh.dandenong.3', name: 'Mai Nguyen', role: 'learner', unit: 'dan-w', progress: W('proven', 'done') },
+  { key: 'd1', email: 'driver.dandenong.1', name: 'Steve Pappas', role: 'learner', unit: 'dan-d', progress: D('proven', 'proven') },
+  { key: 'd2', email: 'driver.dandenong.2', name: 'Rhys Evans', role: 'learner', unit: 'dan-d', progress: D('proven', 'proven') },
+  { key: 'd3', email: 'driver.dandenong.3', name: 'Gurpreet Singh', role: 'learner', unit: 'dan-d', progress: D('proven', 'sent') },
+
+  // Laverton: mostly there
+  { key: 'w4', email: 'wh.laverton.1', name: 'Bianca Rossi', role: 'learner', unit: 'lav-w', progress: W('proven', 'proven') },
+  { key: 'w5', email: 'wh.laverton.2', name: 'Josh Taylor', role: 'learner', unit: 'lav-w', progress: W('due', 'done') },
+  { key: 'd4', email: 'driver.laverton.1', name: 'Wayne Mitchell', role: 'learner', unit: 'lav-d', progress: D('proven', 'proven') },
+  { key: 'd5', email: 'driver.laverton.2', name: 'Fatima Hassan', role: 'learner', unit: 'lav-d', progress: D('proven', 'due') },
+  { key: 'd6', email: 'driver.laverton.3', name: 'Ben Carter (on leave)', role: 'learner', unit: 'lav-d' },
+
+  // Wetherill Park: halfway, checks waiting
+  { key: 'w6', email: 'wh.wetherill.1', name: 'Tony Haddad', role: 'learner', unit: 'wet-w', progress: W('proven', 'sent') },
+  { key: 'w7', email: 'wh.wetherill.2', name: 'Chloe Wilson', role: 'learner', unit: 'wet-w', progress: W('sent', 'started') },
+  { key: 'w8', email: 'wh.wetherill.3', name: 'Daniel Kim', role: 'learner', unit: 'wet-w', progress: W('due') },
+  { key: 'd7', email: 'driver.wetherill.1', name: 'Mark Sullivan', role: 'learner', unit: 'wet-d', progress: D('proven', 'proven') },
+  { key: 'd8', email: 'driver.wetherill.2', name: 'Ali Yilmaz', role: 'learner', unit: 'wet-d', progress: D('sent', 'done') },
+  { key: 'd9', email: 'driver.wetherill.3', name: 'Paul Fraser', role: 'learner', unit: 'wet-d', progress: D('started') },
+
+  // Eagle Farm: needs a visit
+  { key: 'w9', email: 'wh.eaglefarm.1', name: 'Kiara Thompson', role: 'learner', unit: 'eag-w', progress: W('proven', 'started') },
+  { key: 'w10', email: 'wh.eaglefarm.2', name: "Liam O'Brien", role: 'learner', unit: 'eag-w', progress: W('started') },
+  { key: 'w11', email: 'wh.eaglefarm.3', name: 'Sione Taufa', role: 'learner', unit: 'eag-w' },
+  { key: 'd10', email: 'driver.eaglefarm.1', name: 'Darren Hughes', role: 'learner', unit: 'eag-d', progress: D('sent', 'started') },
+  { key: 'd11', email: 'driver.eaglefarm.2', name: 'Emma Clarke', role: 'learner', unit: 'eag-d', progress: D('started') },
+  { key: 'd12', email: 'driver.eaglefarm.3', name: 'Jayden Brown', role: 'learner', unit: 'eag-d' },
 ];
+
+const DRIVER_TEAMS = ['dan-d', 'lav-d', 'wet-d', 'eag-d'];
+const WAREHOUSE_TEAMS = ['dan-w', 'lav-w', 'wet-w', 'eag-w'];
+
+type Built = { id: string; moduleId: string; lessons: { id: string; hasQuiz: boolean }[] };
 
 async function load(flags: Set<string>) {
   const env = await getEnvironment(db);
@@ -118,7 +181,7 @@ async function load(flags: Set<string>) {
 
   const root = await must(db.from('units').select('id').is('parent_id', null).limit(1), 'Checking root');
   if ((root as unknown[]).length) {
-    die('A top-level unit already exists, so the demo supplier cannot be added as a second root.');
+    die('A top-level unit already exists, so the demo company cannot be added as a second root.');
   }
 
   // --- Units, parents first -------------------------------------------------
@@ -168,80 +231,46 @@ async function load(flags: Set<string>) {
   }
   console.log(`People: ${USERS.length}`);
 
-  // --- Course ---------------------------------------------------------------
-  const course = (await must(
-    db
-      .from('courses')
-      .insert({ title: COURSE_TITLE, description: COURSE_DESCRIPTION, published: true, demo_tag: TAG })
-      .select('id')
-      .single(),
-    'Creating course'
-  )) as { id: string };
-  const mod = (await must(
-    db.from('modules').insert({ course_id: course.id, title: MODULE_TITLE, sort_order: 1 }).select('id').single(),
-    'Creating module'
-  )) as { id: string };
-
-  const lessonIds: { id: string; hasQuiz: boolean }[] = [];
-  for (let i = 0; i < LESSONS.length; i++) {
-    const def = LESSONS[i];
-    const lesson = (await must(
-      db
-        .from('lessons')
-        .insert({
-          module_id: mod.id,
-          title: def.title,
-          sort_order: i + 1,
-          bunny_video_id: null,
-          sample_video_url: def.video,
-          image_url: posterDataUri(`Video ${i + 1}`, def.title),
-          script: def.script,
-          duration_seconds: 30,
-          watch_threshold: 0.9,
-        })
-        .select('id')
-        .single(),
-      `Creating lesson ${def.title}`
-    )) as { id: string };
-    if (def.quiz) {
-      await must(
-        db.from('quizzes').insert({ lesson_id: lesson.id, pass_mark: 0.8, questions: def.quiz }),
-        `Creating quiz for ${def.title}`
-      );
-    }
-    lessonIds.push({ id: lesson.id, hasQuiz: Boolean(def.quiz) });
+  // --- Courses --------------------------------------------------------------
+  const built = {} as Record<CourseKey, Built>;
+  for (const [key, def] of Object.entries(COURSES) as [CourseKey, CourseDef][]) {
+    built[key] = await createCourse(def);
+    console.log(`Course: ${def.title} (${def.lessons.length} lessons)`);
   }
-  console.log(`Course: ${COURSE_TITLE} (${LESSONS.length} lessons)`);
 
-  // --- Assignments: one per branch of the rule matcher ----------------------
+  // --- Assignments: everyone, drivers only, warehouse only -------------------
+  const rule = (r: { all?: boolean; unit_ids?: string[]; exclude_user_ids?: string[] }) => ({
+    all: false,
+    unit_ids: [] as string[],
+    states: [] as string[],
+    include_user_ids: [] as string[],
+    exclude_user_ids: [] as string[],
+    ...r,
+  });
   await must(
     db.from('assignments').insert([
       {
-        course_id: course.id,
-        label: 'Harvest, all stores',
-        rule: { all: false, unit_ids: [unitId.harvest], states: [], include_user_ids: [], exclude_user_ids: [] },
+        course_id: built.manualHandling.id,
+        label: 'Everyone',
+        rule: rule({ all: true }),
         due_days: 14,
-        created_by: userId.admin,
+        created_by: userId.safety,
         demo_tag: TAG,
       },
       {
-        course_id: course.id,
-        label: 'Northgate, QLD only (excluding Quinn)',
-        rule: {
-          all: false,
-          unit_ids: [unitId.north],
-          states: ['QLD'],
-          include_user_ids: [],
-          exclude_user_ids: [userId.f6],
-        },
-        created_by: userId.admin,
+        course_id: built.fatigue.id,
+        label: 'All drivers (Ben excluded while on leave)',
+        rule: rule({ unit_ids: DRIVER_TEAMS.map((k) => unitId[k]), exclude_user_ids: [userId.d6] }),
+        due_days: 21,
+        created_by: userId.safety,
         demo_tag: TAG,
       },
       {
-        course_id: course.id,
-        label: 'Direct staff (no middle man)',
-        rule: { all: false, unit_ids: [], states: [], include_user_ids: [userId.direct], exclude_user_ids: [] },
-        created_by: userId.admin,
+        course_id: built.forklift.id,
+        label: 'All warehouse teams',
+        rule: rule({ unit_ids: WAREHOUSE_TEAMS.map((k) => unitId[k]) }),
+        due_days: 21,
+        created_by: userId.safety,
         demo_tag: TAG,
       },
     ]),
@@ -251,10 +280,11 @@ async function load(flags: Set<string>) {
   // --- Progress, so the reports show something -------------------------------
   const now = new Date();
   const ago = (days: number) => new Date(now.getTime() - days * 86400_000).toISOString();
-  const finish = async (who: string, daysAgo: number) => {
+
+  const finish = async (who: string, c: Built, daysAgo: number) => {
     await must(
       db.from('lesson_progress').insert(
-        lessonIds.map((l) => ({
+        c.lessons.map((l) => ({
           user_id: userId[who],
           lesson_id: l.id,
           watch_pct: 1,
@@ -267,46 +297,97 @@ async function load(flags: Set<string>) {
       `Progress for ${who}`
     );
   };
-  // Jordan: completed and re-test passed (retention-verified).
-  await finish('f1', 9);
-  await must(
-    db.from('retests').insert({
-      user_id: userId.f1, module_id: mod.id, due_at: ago(4), attempts: 1,
-      last_score: 1, status: 'passed', passed_at: ago(3), sent_at: ago(4),
-    }),
-    'Re-test for Jordan'
-  );
-  // Casey: completed, re-test due now (would be emailed at 8am Sydney).
-  await finish('f2', 6);
-  await must(
-    db.from('retests').insert({
-      user_id: userId.f2, module_id: mod.id, due_at: ago(1), status: 'pending',
-    }),
-    'Re-test for Casey'
-  );
-  // Riley: completed, re-test sent 4 days ago and untouched (reminder due).
-  await finish('f3', 9);
-  await must(
-    db.from('retests').insert({
-      user_id: userId.f3, module_id: mod.id, due_at: ago(4), status: 'sent', sent_at: ago(4),
-    }),
-    'Re-test for Riley'
-  );
-  // Morgan: watched the first lesson only.
-  await must(
-    db.from('lesson_progress').insert({
-      user_id: userId.f4, lesson_id: lessonIds[0].id, watch_pct: 0.95, watched_at: ago(1),
-      quiz_attempts: 0,
-    }),
-    'Partial progress for Morgan'
-  );
-  // Taylor and Quinn: not started.
+  const retest = (who: string, c: Built, row: Record<string, unknown>) =>
+    must(db.from('retests').insert({ user_id: userId[who], module_id: c.moduleId, ...row }), `Re-test for ${who}`);
+
+  let records = 0;
+  for (const u of USERS) {
+    for (const [key, status] of Object.entries(u.progress ?? {}) as [CourseKey, Status][]) {
+      const c = built[key];
+      records++;
+      switch (status) {
+        case 'proven':
+          await finish(u.key, c, 9);
+          await retest(u.key, c, {
+            due_at: ago(4), sent_at: ago(4), attempts: 1, last_score: 1, status: 'passed', passed_at: ago(3),
+          });
+          break;
+        case 'sent':
+          await finish(u.key, c, 9);
+          await retest(u.key, c, { due_at: ago(4), sent_at: ago(4), status: 'sent' });
+          break;
+        case 'due':
+          await finish(u.key, c, 6);
+          await retest(u.key, c, { due_at: ago(1), status: 'pending' });
+          break;
+        case 'done':
+          await finish(u.key, c, 2);
+          await retest(u.key, c, { due_at: ago(-3), status: 'pending' });
+          break;
+        case 'started':
+          await must(
+            db.from('lesson_progress').insert({
+              user_id: userId[u.key], lesson_id: c.lessons[0].id, watch_pct: 0.95, watched_at: ago(1), quiz_attempts: 0,
+            }),
+            `Partial progress for ${u.key}`
+          );
+          break;
+      }
+    }
+  }
+  console.log(`Progress records: ${records}`);
 
   console.log(
-    `\nDone. Sign in with any of these (magic link; demo addresses cannot receive mail, so use\n` +
-      `the Supabase dashboard "Generate link" or add yourself as a real staff member):\n` +
+    `\nDone. Demo addresses cannot receive mail. Get a sign-in link with\n` +
+      `  npm run login:link -- --email <address>\n` +
       USERS.map((u) => `  ${u.email}@${DOMAIN}  ${u.role}`).join('\n')
   );
+}
+
+async function createCourse(def: CourseDef): Promise<Built> {
+  const course = (await must(
+    db
+      .from('courses')
+      .insert({ title: def.title, description: def.description, published: true, demo_tag: TAG })
+      .select('id')
+      .single(),
+    `Creating course ${def.title}`
+  )) as { id: string };
+  const mod = (await must(
+    db.from('modules').insert({ course_id: course.id, title: def.module, sort_order: 1 }).select('id').single(),
+    `Creating module for ${def.title}`
+  )) as { id: string };
+
+  const lessons: Built['lessons'] = [];
+  for (let i = 0; i < def.lessons.length; i++) {
+    const l = def.lessons[i];
+    const lesson = (await must(
+      db
+        .from('lessons')
+        .insert({
+          module_id: mod.id,
+          title: l.title,
+          sort_order: i + 1,
+          bunny_video_id: null,
+          sample_video_url: l.video,
+          image_url: posterDataUri(`Video ${i + 1}`, l.title),
+          script: l.script,
+          duration_seconds: 30,
+          watch_threshold: 0.9,
+        })
+        .select('id')
+        .single(),
+      `Creating lesson ${l.title}`
+    )) as { id: string };
+    if (l.quiz) {
+      await must(
+        db.from('quizzes').insert({ lesson_id: lesson.id, pass_mark: 0.8, questions: l.quiz }),
+        `Creating quiz for ${l.title}`
+      );
+    }
+    lessons.push({ id: lesson.id, hasQuiz: Boolean(l.quiz) });
+  }
+  return { id: course.id, moduleId: mod.id, lessons };
 }
 
 // Demo data loaded before the Octolab rename carries this tag. Purge clears it

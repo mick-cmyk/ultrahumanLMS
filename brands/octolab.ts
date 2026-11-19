@@ -12,17 +12,19 @@ const octolab: BrandConfig = {
   primaryColor: '#ED4E05',
   logoUrl: 'https://lms.octolab.com.au/brand/octolab-logo.png',
   markUrl: '/brand/octolab-logo.png',
-  supportEmail: null,
+  supportEmail: 'support@octolab.com.au',
   links: { website: 'https://octolab.com.au' },
   voice: {
     checkName: 'quick check',
     emailSignoff: 'The Octolab team',
   },
+  // General, not retail: the demo is a transport company (seed/octolab.ts).
   levelLabels: {
-    supplier: 'Supplier',
-    brand: 'Retail brand',
-    region: 'Training manager or state rep',
-    store: 'Store',
+    supplier: 'Head office',
+    brand: 'Division',
+    region: 'State or region',
+    store: 'Site or depot',
+    team: 'Team',
   },
   emailFromName: 'LMS Demo by Octolab',
 };
