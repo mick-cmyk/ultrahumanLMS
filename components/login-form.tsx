@@ -41,6 +41,13 @@ function Form({ autoFocus = false, variant = 'page' }: Props) {
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
+    // Demo accounts use .invalid addresses, which can never receive email.
+    // Sending would only bounce and hurt the sending domain, so stop here.
+    if (/\.invalid$/i.test(email.trim())) {
+      setStatus('error');
+      setErrorMessage("That's a demo account, so it can't get email. Ask whoever gave you the demo for a login link.");
+      return;
+    }
     setStatus('sending');
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({

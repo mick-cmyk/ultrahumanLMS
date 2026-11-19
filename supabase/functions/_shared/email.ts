@@ -204,7 +204,16 @@ export function renderText(heading: string, blocks: EmailBlock[]): string {
   return parts.join('\n');
 }
 
-export type SendResult = { ok: boolean; id?: string; error?: string; dryRun?: boolean };
+export type SendResult = { ok: boolean; id?: string; error?: string; dryRun?: boolean; skipped?: boolean };
+
+/**
+ * Demo users have `.invalid` addresses (a reserved name that can never
+ * deliver, and the database enforces it for demo rows). Sending to them only
+ * bounces and hurts the sending domain's reputation, so they are skipped.
+ */
+export function isUndeliverable(to: string): boolean {
+  return /\.invalid$/i.test(to.trim());
+}
 
 /**
  * Sends via Resend with a small retry. `idempotencyKey` makes a retried cron
@@ -221,6 +230,10 @@ export async function send(opts: {
   tag?: string;
   logPrefix: string;
 }): Promise<SendResult> {
+  if (isUndeliverable(opts.to)) {
+    console.log(`${opts.logPrefix} skipped demo address to=${opts.to} subject="${opts.subject}"`);
+    return { ok: true, skipped: true };
+  }
   if (DRY_RUN) {
     console.log(
       `${opts.logPrefix} (dry run: no RESEND_API_KEY) to=${opts.to} subject="${opts.subject}"\n${opts.text}`
