@@ -97,6 +97,15 @@ export type EmailBlock =
  * Renders a plain, table-based HTML email. Deliberately boring markup: this
  * has to survive Outlook and the Gmail app on a phone in a stockroom.
  */
+/** Square brand mark with the brand name beside it, laid out with a table for mail clients. */
+function brandMark(src: string, nameSpan: string): string {
+  return (
+    `<table role="presentation" cellpadding="0" cellspacing="0"><tr>` +
+    `<td style="padding-right:10px;vertical-align:middle"><img src="${esc(src)}" alt="" width="32" height="32" style="display:block;width:32px;height:32px;border:0"></td>` +
+    `<td style="vertical-align:middle">${nameSpan}</td></tr></table>`
+  );
+}
+
 export function renderEmail(opts: {
   preheader: string;
   heading: string;
@@ -143,11 +152,16 @@ export function renderEmail(opts: {
     })
     .join('\n');
 
-  const header = logo
-    ? `<img src="${esc(logo)}" alt="${esc(opts.brand?.name ?? '')}" height="28" style="display:block;height:28px;border:0">`
-    : `<span style="font-size:15px;font-weight:bold;letter-spacing:.04em;color:${INK}">${esc(
-        opts.brand?.name ?? BRAND_NAME
-      )}</span>`;
+  // A unit's own logo is usually a wordmark, so it stands alone. The brand's
+  // fallback logo is a square mark, so the brand name sits beside it.
+  const name = opts.brand?.name ?? BRAND_NAME;
+  const nameSpan = `<span style="font-size:15px;font-weight:bold;letter-spacing:.04em;color:${INK}">${esc(name)}</span>`;
+  const unitLogo = opts.brand?.logoUrl;
+  const header = unitLogo
+    ? `<img src="${esc(unitLogo)}" alt="${esc(name)}" height="28" style="display:block;height:28px;border:0">`
+    : logo
+      ? brandMark(logo, nameSpan)
+      : nameSpan;
 
   return `<!doctype html>
 <html lang="en-AU"><head><meta charset="utf-8">

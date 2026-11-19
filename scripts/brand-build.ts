@@ -10,7 +10,7 @@
 // Templates, Magic link) and set the subject printed below. brand:secrets
 // prints one `supabase secrets set` line you can run as it is.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getBrand, getBrandTokens } from '../brands';
 import { die, parseArgs } from './db';
@@ -23,10 +23,25 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** The magic-link subject in supabase/config.toml, so the printed hint matches local dev. */
+function magicLinkSubject(): string | null {
+  try {
+    const toml = readFileSync(join(process.cwd(), 'supabase', 'config.toml'), 'utf8');
+    const m = toml.match(/\[auth\.email\.template\.magic_link\][^[]*?\nsubject\s*=\s*"([^"]+)"/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 function template(name: string, logoUrl: string | null, link: string, accent: string, onAccent: string, signoff: string) {
+  // The brand logo is a square mark, so the name sits beside it (a table, for mail clients).
+  const nameSpan = `<span style="font-size:15px;font-weight:bold;letter-spacing:.04em;color:${INK}">${esc(name)}</span>`;
   const header = logoUrl
-    ? `<img src="${esc(logoUrl)}" alt="${esc(name)}" height="28" style="display:block;height:28px;border:0">`
-    : `<span style="font-size:15px;font-weight:bold;letter-spacing:.04em;color:${INK}">${esc(name)}</span>`;
+    ? `<table role="presentation" cellpadding="0" cellspacing="0"><tr>` +
+      `<td style="padding-right:10px;vertical-align:middle"><img src="${esc(logoUrl)}" alt="" width="32" height="32" style="display:block;width:32px;height:32px;border:0"></td>` +
+      `<td style="vertical-align:middle">${nameSpan}</td></tr></table>`
+    : nameSpan;
   return `<!doctype html>
 <html lang="en-AU">
 <body style="margin:0;padding:0;background:${CREAM}">
@@ -110,7 +125,7 @@ async function main() {
   console.log('\nWrote supabase/templates/magic_link.html and magic_link_hosted.html');
   console.log('\nFor a hosted Supabase project, paste magic_link_hosted.html into');
   console.log('Authentication, Email Templates, Magic link, and set the subject to:');
-  console.log(`  Your ${brand.name} login link\n`);
+  console.log(`  ${magicLinkSubject() ?? `Your ${brand.name} login link`}\n`);
 }
 
 main().catch((e) => die(String(e)));
