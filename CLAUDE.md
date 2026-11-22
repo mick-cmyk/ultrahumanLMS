@@ -14,6 +14,7 @@ One `units` tree per deployment: supplier (root) > Level 1 retail brand > Level 
 - **Authorisation lives in the database.** Security-definer functions use `auth.uid()` and run as the caller. The service role key is used only to create logins (`lib/provision.ts`), validate re-test tokens and run CLI scripts. Never change an existing user's role when re-provisioning them.
 - **Privileges are an allowlist** (`20261017001000_lockdown.sql`). New tables and functions get no grants by default. Internal functions are service-role only. No write grants on `lesson_progress`, `retests`, `retest_tokens`.
 - **Magic links only.** No password UI. Re-test emails open a landing page with a Start button; only the POST to `/api/retest/start` issues a session (mail scanners prefetch GETs).
+- **Courses are built in the app** (`/build`, admins) through `/api/courses` under the admin's session. Quiz question shape is enforced in the database (`quizzes_check_questions`); `lib/quiz-csv.ts` and `lib/course-check.ts` are the shared parse and publish rules. Never delete content that has learner progress.
 - **Watch tracking** counts unique seconds seen, at least 90% of duration. The server keeps `greatest(existing, incoming)`, so scrubbing to the end never counts.
 - **No em dashes** in UI copy or email. Australian English, plain language. The readers are retail staff.
 - Schema changes are migration files in `supabase/migrations/`. Never instruct dashboard changes.

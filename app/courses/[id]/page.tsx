@@ -17,7 +17,7 @@ export default async function CoursePage({
     supabase
       .from('courses')
       .select(
-        'id, title, description, modules(id, title, sort_order, lessons(id, title, sort_order, duration_seconds))'
+        'id, title, description, modules(id, title, intro, sort_order, lessons(id, title, sort_order, duration_seconds))'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -50,6 +50,7 @@ export default async function CoursePage({
       {modules.map((module) => (
         <section key={module.id} className="space-y-2">
           <h2 className="font-medium text-gray-700">{module.title}</h2>
+          {module.intro && <p className="whitespace-pre-line text-gray-600">{module.intro}</p>}
           <ul className="divide-y divide-gray-100 rounded border border-gray-200">
             {[...module.lessons]
               .sort((a, b) => a.sort_order - b.sort_order)

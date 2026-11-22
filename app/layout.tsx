@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { getProfile, type Role } from '@/lib/auth';
 import { getBrand, getBrandTokens } from '@/brands';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { THEME_COOKIE } from '@/lib/theme';
 import './globals.css';
 
 // Everything the product says about itself comes from the deployment's brand
@@ -26,6 +29,7 @@ const NAV: Record<Role, { href: string; label: string }[]> = {
   ],
   admin: [
     { href: '/reports', label: 'Reporting' },
+    { href: '/build', label: 'Courses' },
     { href: '/assign', label: 'Assign' },
     { href: '/people', label: 'People' },
     { href: '/structure', label: 'Structure' },
@@ -39,6 +43,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const profile = await getProfile();
+  const saved = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme = saved === 'dark' || saved === 'light' ? saved : undefined;
   const links = profile ? NAV[profile.role] : [];
   const footerLinks = [
     brand.links.help && { href: brand.links.help, label: 'Help' },
@@ -50,22 +56,25 @@ export default async function RootLayout({
   return (
     <html
       lang="en-AU"
+      data-theme={theme}
       style={
         {
           '--brand': tokens.brand,
           '--brand-fg': tokens.brandFg,
-          '--brand-ink': tokens.brandInk,
-          '--brand-soft': tokens.brandSoft,
+          '--brand-ink-light': tokens.brandInk,
+          '--brand-soft-light': tokens.brandSoft,
+          '--brand-ink-dark': tokens.brandInkDark,
+          '--brand-soft-dark': tokens.brandSoftDark,
         } as React.CSSProperties
       }
     >
-      <body className="min-h-screen bg-white text-gray-900 antialiased">
+      <body className="min-h-screen bg-surface text-gray-900 antialiased">
         <header className="border-b border-gray-200 border-t-4 border-t-brand">
           <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
             <Link href="/" className="flex items-center gap-2 font-semibold">
               {brand.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={brand.logoUrl} alt={brand.name} className="h-7 max-w-[160px] object-contain" />
+                <img src={brand.logoUrl} alt={brand.name} className="h-7 max-w-[160px] object-contain dark:rounded dark:bg-white dark:p-0.5" />
               ) : (
                 brand.name
               )}
@@ -77,21 +86,24 @@ export default async function RootLayout({
                 </Link>
               ))}
             </nav>
-            {!profile && (
-              <Link href="/login" className="ml-auto text-sm font-medium text-brand-ink underline">
-                Log in
-              </Link>
-            )}
-            {profile && (
-              <form action="/auth/signout" method="post" className="ml-auto">
-                <button
-                  type="submit"
-                  className="text-sm text-gray-600 underline hover:text-brand-ink"
-                >
-                  Log out
-                </button>
-              </form>
-            )}
+            <div className="ml-auto flex items-center gap-2">
+              <ThemeToggle />
+              {!profile && (
+                <Link href="/login" className="text-sm font-medium text-brand-ink underline">
+                  Log in
+                </Link>
+              )}
+              {profile && (
+                <form action="/auth/signout" method="post">
+                  <button
+                    type="submit"
+                    className="text-sm text-gray-600 underline hover:text-brand-ink"
+                  >
+                    Log out
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
