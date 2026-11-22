@@ -107,7 +107,7 @@ function Form({ autoFocus = false, variant = 'page' }: Props) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded border border-gray-300 bg-white px-3 py-2.5"
+            className="w-full rounded border border-gray-300 bg-surface px-3 py-2.5"
           />
         </label>
         <button

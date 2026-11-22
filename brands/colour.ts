@@ -53,6 +53,16 @@ export function inkFor(hex: string, bg: string = WHITE, min = 4.5): string {
   return out;
 }
 
+/** Page background in dark mode. Must match --surface in app/globals.css. */
+export const DARK_SURFACE = '#0f1115';
+
+/** The brand colour, lightened just enough to be readable as text on a dark background. */
+export function lightInkFor(hex: string, bg: string = DARK_SURFACE, min = 4.5): string {
+  let out = hex;
+  for (let i = 0; i < 40 && contrast(out, bg) < min; i++) out = mix(out, WHITE, 0.08);
+  return out;
+}
+
 export type BrandTokens = {
   /** Fills: buttons, bars, the header accent. */
   brand: string;
@@ -62,6 +72,10 @@ export type BrandTokens = {
   brandInk: string;
   /** Pale tint for highlighted rows and banners. */
   brandSoft: string;
+  /** brandInk for dark mode: readable on the dark page background. */
+  brandInkDark: string;
+  /** brandSoft for dark mode: a deep tint instead of a pale one. */
+  brandSoftDark: string;
 };
 
 export function deriveTokens(primary: string): BrandTokens {
@@ -70,5 +84,7 @@ export function deriveTokens(primary: string): BrandTokens {
     brandFg: textOn(primary),
     brandInk: inkFor(primary),
     brandSoft: mix(primary, WHITE, 0.92),
+    brandInkDark: lightInkFor(primary),
+    brandSoftDark: mix(primary, DARK_SURFACE, 0.82),
   };
 }

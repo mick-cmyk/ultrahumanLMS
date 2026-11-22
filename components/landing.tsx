@@ -95,7 +95,7 @@ export function Landing() {
           {website && (
             <a
               href={website}
-              className="mt-7 inline-block rounded-full bg-gray-900 px-6 py-3 font-semibold text-white hover:bg-gray-700"
+              className="mt-7 inline-block rounded-full bg-gray-900 px-6 py-3 font-semibold text-gray-50 hover:bg-gray-700"
             >
               Book a demo
             </a>
@@ -229,7 +229,7 @@ export function Landing() {
             {website && (
               <a
                 href={website}
-                className="inline-block rounded-full bg-gray-900 px-6 py-3 font-semibold text-white hover:bg-gray-700"
+                className="inline-block rounded-full bg-gray-900 px-6 py-3 font-semibold text-gray-50 hover:bg-gray-700"
               >
                 Talk to {brand.name}
               </a>

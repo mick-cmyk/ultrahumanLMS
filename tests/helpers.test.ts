@@ -40,6 +40,7 @@ describe('brand colours', () => {
       const t = deriveTokens(primary);
       expect(contrast(t.brandInk, '#ffffff')).toBeGreaterThanOrEqual(4.5);
       expect(contrast(t.brand, t.brandFg)).toBeGreaterThanOrEqual(3); // large/bold button text
+      expect(contrast(t.brandInkDark, '#0f1115')).toBeGreaterThanOrEqual(4.5); // dark mode
     }
   });
 });
