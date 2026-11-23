@@ -52,6 +52,22 @@ export default async function LessonPage({
   const parentModule = one(lesson.modules);
   const courseTitle = one(parentModule?.courses ?? null)?.title;
 
+  // The lesson after this one in the course (across modules), for the
+  // "Next" button once the quiz is passed. On the last lesson it goes back to
+  // the course page.
+  const { data: outline } = await supabase
+    .from('modules')
+    .select('sort_order, lessons(id, title, sort_order)')
+    .eq('course_id', parentModule?.course_id ?? '');
+  const ordered = (outline ?? [])
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .flatMap((m) => [...(m.lessons ?? [])].sort((a, b) => a.sort_order - b.sort_order));
+  const here = ordered.findIndex((l) => l.id === lesson.id);
+  const following = here >= 0 ? ordered[here + 1] : undefined;
+  const next = following
+    ? { href: `/lessons/${following.id}`, label: `Next: ${following.title}` }
+    : { href: `/courses/${parentModule?.course_id}`, label: 'Finish and go back to the course' };
+
   return (
     <div className="space-y-4">
       <div>
@@ -122,6 +138,7 @@ export default async function LessonPage({
           lessonId={lesson.id}
           unlocked={Boolean(progress?.watched_at)}
           alreadyPassed={Boolean(progress?.quiz_passed_at)}
+          next={next}
         />
       )}
 

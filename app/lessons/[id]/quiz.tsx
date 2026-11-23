@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type Question = { id: string; text: string; options: string[] };
 type Quiz = { pass_mark: number; questions: Question[] };
@@ -28,10 +29,13 @@ export function Quiz({
   lessonId,
   unlocked,
   alreadyPassed,
+  next,
 }: {
   lessonId: string;
   unlocked: boolean;
   alreadyPassed: boolean;
+  /** Where to go once passed: the next lesson, or back to the course. */
+  next?: { href: string; label: string };
 }) {
   const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -169,6 +173,13 @@ export function Quiz({
             : `You need ${Math.round(
                 result.pass_mark * 100
               )}% to pass. Have another go. The explanations below will help.`}
+          {result.passed && next && <NextButton next={next} />}
+        </div>
+      )}
+      {!result && passed && next && (
+        <div className="rounded bg-green-50 p-3 text-sm text-green-800">
+          You&apos;ve passed this one.
+          <NextButton next={next} />
         </div>
       )}
       </div>
@@ -254,5 +265,18 @@ export function Quiz({
         </form>
       )}
     </section>
+  );
+}
+
+function NextButton({ next }: { next: { href: string; label: string } }) {
+  return (
+    <div className="mt-3">
+      <Link
+        href={next.href}
+        className="inline-flex min-h-11 items-center rounded bg-brand px-4 py-2 font-medium text-brand-fg hover:opacity-90"
+      >
+        {next.label} <span aria-hidden="true">&nbsp;&rarr;</span>
+      </Link>
+    </div>
   );
 }
