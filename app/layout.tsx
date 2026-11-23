@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { getProfile, type Role } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 import { getBrand, getBrandTokens } from '@/brands';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { THEME_COOKIE } from '@/lib/theme';
@@ -46,6 +47,13 @@ export default async function RootLayout({
   const saved = (await cookies()).get(THEME_COOKIE)?.value;
   const theme = saved === 'dark' || saved === 'light' ? saved : undefined;
   const links = profile ? NAV[profile.role] : [];
+  // Messages badge: unread updates and conversations, plus reported posts for moderators.
+  let unread = 0;
+  if (profile) {
+    const { data } = await (await createClient()).rpc('message_counts');
+    const c = (data ?? {}) as { announcements?: number; threads?: number; reported?: number };
+    unread = (c.announcements ?? 0) + (c.threads ?? 0) + (c.reported ?? 0);
+  }
   const footerLinks = [
     brand.links.help && { href: brand.links.help, label: 'Help' },
     brand.links.privacy && { href: brand.links.privacy, label: 'Privacy' },
@@ -85,6 +93,17 @@ export default async function RootLayout({
                   {l.label}
                 </Link>
               ))}
+              {profile && (
+                <Link href="/messages" className="inline-flex items-center gap-1 text-gray-600 hover:text-brand-ink">
+                  Messages
+                  {unread > 0 && (
+                    <span className="rounded-full bg-brand px-1.5 text-xs font-semibold leading-5 text-brand-fg">
+                      {unread > 99 ? '99+' : unread}
+                      <span className="sr-only"> new</span>
+                    </span>
+                  )}
+                </Link>
+              )}
             </nav>
             <div className="ml-auto flex items-center gap-2">
               <ThemeToggle />

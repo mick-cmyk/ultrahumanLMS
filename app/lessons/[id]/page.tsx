@@ -6,6 +6,7 @@ import { VideoPlayer } from './video-player';
 import { Quiz } from './quiz';
 import { ScormPlayer } from './scorm-player';
 import { WrittenPrompts } from './written-prompts';
+import { Discussion, type Post } from './discussion';
 
 export default async function LessonPage({
   params,
@@ -67,6 +68,16 @@ export default async function LessonPage({
   const next = following
     ? { href: `/lessons/${following.id}`, label: `Next: ${following.title}` }
     : { href: `/courses/${parentModule?.course_id}`, label: 'Finish and go back to the course' };
+
+  // Lesson discussion: only when an admin has turned it on.
+  const [{ data: mode }, { data: me }] = await Promise.all([
+    supabase.rpc('discussion_mode'),
+    supabase.from('users').select('role, unit_id').eq('id', user!.id).maybeSingle(),
+  ]);
+  const discussionOn = mode === 'unit';
+  const posts = discussionOn
+    ? (((await supabase.rpc('lesson_discussion', { p_lesson: lesson.id })).data ?? []) as Post[])
+    : [];
 
   return (
     <div className="space-y-4">
@@ -143,6 +154,23 @@ export default async function LessonPage({
       )}
 
       {!scormLaunch && <WrittenPrompts lessonId={lesson.id} unlocked={Boolean(progress?.watched_at)} />}
+
+      {discussionOn && (
+        <Discussion
+          lessonId={lesson.id}
+          posts={posts}
+          placed={Boolean(me?.unit_id)}
+          showStores={me?.role === 'manager' || me?.role === 'admin'}
+        />
+      )}
+
+      <p className="text-sm text-gray-600">
+        Stuck on something?{' '}
+        <Link href={`/messages?lesson=${lesson.id}`} className="text-brand-ink underline">
+          Ask your manager about this lesson
+        </Link>
+        .
+      </p>
     </div>
   );
 }

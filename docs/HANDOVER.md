@@ -63,6 +63,16 @@ Sun and moon switch in the header on every page, logged in or out. With no choic
 - **Watched amount** shows in 10% steps.
 - **"Staff must watch each video before its quiz"** tick on the course details (`courses.require_watch`, `20261125000100_watch_options_and_aspect.sql`). Unticked, the course's video lessons get a watch threshold of 0 (triggers keep it in step, new lessons follow); opening the lesson records a 0% watch, which counts, so the quiz opens straight away and every existing completion and re-test rule works unchanged. Ticking it again restores 90%; progress already earned stays.
 
+## Messages (26 Nov 2026)
+
+Migration `20261126000100_messages.sql`, test `v2_messages.test.sql` (69 checks). Everyone gets a **Messages** link with an unread badge (`message_counts`). Three separate things:
+
+- **Updates (announcements).** Admins and managers, from `/messages/announce`. The audience is the assignment rule shape, matched only by `user_matches_rule`; a manager's audience is also cut to their scope (`_announcement_audience`). Recipients are fixed when it's posted. Staff tap "Got it"; `/messages/sent` shows counts and who hasn't. "Important" also emails.
+- **Conversations (questions).** Staff ask their managers (`start_thread` with no `p_about`); managers and admins message someone in their area (`p_about`). A conversation is about one person and is seen by that person, every manager whose scope covers their unit, and admins. **No private messages between staff, by decision.** New questions email the nearest managers (`_nearest_managers`, admins if there are none); replies email the other side. Lessons have an "Ask your manager about this lesson" link (`/messages?lesson=<id>`).
+- **Lesson discussions.** Off until an admin ticks it on `/messages` (`app_settings.discussions`: `off` or `unit`). `unit` means each store or branch only sees its own posts; managers above see their stores' posts labelled, pin and take down; anyone can report, and reports show on the moderators' Messages page. A wider setting (whole retail brand) can be added later as another value.
+- **Emails** go through `message_email_queue`, sent by the `course-notify` edge function after course emails, sharing the hourly limit (`_email_room`). They are only sent 8am to 8pm Sydney time (`_next_send_time`, right to disconnect); anything later waits until 8am. One waiting email per person per thread, and it's skipped if they read it first.
+- **Demo state:** discussions are ON in the demo so they can be seen. Test data left in: an update "Test update: new roster" from the Eagle Farm depot manager, Kiara's "Swapping a Saturday shift" conversation, and her tip on "Exclusion zones and walkways".
+
 ## To do
 
 0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.
