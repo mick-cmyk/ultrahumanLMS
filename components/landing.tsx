@@ -64,7 +64,7 @@ const sample = [
   { site: 'Eagle Farm depot', detail: '4 of 16 staff proven', pct: 25, tone: 'bg-red-100 text-red-800' },
 ];
 
-export function Landing() {
+export function Landing({ signupOpen = false }: { signupOpen?: boolean }) {
   const website = brand.links.website;
 
   return (
@@ -107,7 +107,7 @@ export function Landing() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={brand.markUrl} alt="" className="mb-4 h-14 w-14 rounded-full bg-white object-contain p-1 ring-1 ring-gray-200" />
           )}
-          <LoginForm variant="card" />
+          <LoginForm variant="card" signupOpen={signupOpen} />
           <p className="mt-4 text-sm text-gray-500">
             New here? Your manager adds you, then you can log in with your work email.
           </p>

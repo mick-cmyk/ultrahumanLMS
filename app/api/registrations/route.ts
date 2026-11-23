@@ -6,7 +6,7 @@ import { sendWelcome } from '@/lib/email';
 
 // Self-registration admin, under the caller's own session. The database
 // decides who may do what (20261124000100_self_registration.sql).
-//   { action: 'approve', id }            approver or admin
+//   { action: 'approve', id, role? }     approver or admin (role checked by the database)
 //   { action: 'decline', id }            approver or admin
 //   { action: 'settings', general, auto_approve }   admin
 //   { action: 'link', unit_id, on }      admin, or manager for their own places
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Admins and managers only' }, { status: 403 });
   }
 
-  let b: { action?: string; id?: string; general?: boolean; auto_approve?: boolean; unit_id?: string; on?: boolean };
+  let b: { action?: string; id?: string; role?: string; general?: boolean; auto_approve?: boolean; unit_id?: string; on?: boolean };
   try {
     b = await request.json();
   } catch {
@@ -29,7 +29,17 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const refused = (msg: string) =>
     NextResponse.json(
-      { error: /not allowed/.test(msg) ? "You can't do that for this place." : /not found/.test(msg) ? 'That request has already been dealt with.' : /belongs elsewhere/.test(msg) ? 'That email already belongs to someone in another area. Ask an admin.' : 'Something went wrong.' },
+      {
+        error: /role not allowed/.test(msg)
+          ? "You can't give that role for this place."
+          : /not allowed/.test(msg)
+            ? "You can't do that for this place."
+            : /not found/.test(msg)
+              ? 'That request has already been dealt with.'
+              : /belongs elsewhere/.test(msg)
+                ? 'That email already belongs to someone in another area. Ask an admin.'
+                : 'Something went wrong.',
+      },
       { status: /not allowed|belongs/.test(msg) ? 403 : 400 }
     );
 
@@ -39,6 +49,12 @@ export async function POST(request: Request) {
       const { data, error } = await supabase.rpc('registration_for_approval', { p_id: b.id });
       if (error) return refused(error.message);
       const req = (data as { email: string; full_name: string; unit_id: string }[])[0];
+      const role = ['learner', 'viewer', 'manager', 'admin'].includes(b.role ?? '') ? b.role! : 'learner';
+      // Check the role before creating a login, so a refusal leaves nothing behind.
+      if (role !== 'learner') {
+        const { data: choices } = await supabase.rpc('registration_role_choices', { p_unit: req.unit_id });
+        if (!((choices as string[] | null) ?? []).includes(role)) return refused('role not allowed');
+      }
       let userId: string;
       try {
         ({ id: userId } = await provisionUser({ email: req.email, full_name: req.full_name, unit_id: req.unit_id }));
@@ -46,10 +62,15 @@ export async function POST(request: Request) {
         console.error('[registrations] provisioning failed', e instanceof Error ? e.message : e);
         return NextResponse.json({ error: 'Could not create their login. Try again.' }, { status: 500 });
       }
-      const { error: decideErr } = await supabase.rpc('decide_registration', { p_id: b.id, p_approve: true, p_user: userId });
+      const { data: decided, error: decideErr } = await supabase.rpc('decide_registration', {
+        p_id: b.id,
+        p_approve: true,
+        p_user: userId,
+        p_role: role,
+      });
       if (decideErr) return refused(decideErr.message);
       await sendWelcome(req.email, req.full_name);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, role_applied: (decided as { role_applied?: boolean } | null)?.role_applied ?? false });
     }
     case 'decline': {
       if (!b.id) return NextResponse.json({ error: 'Missing request.' }, { status: 400 });

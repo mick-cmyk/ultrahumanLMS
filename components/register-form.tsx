@@ -1,15 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { levelLabel } from '@/lib/units';
 
-type Place = { id: string; name: string; depth?: number };
+type Place = { id: string; name: string; depth?: number; kind?: string };
 
 // Self-registration form. With a sign-up link the place is fixed (`place`);
 // on the general page the person picks it (`places`).
-export function RegisterForm({ code, place, places }: { code?: string; place?: Place; places?: Place[] }) {
+type Props = { code?: string; place?: Place; places?: Place[] };
+
+export function RegisterForm({ code, place, places }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  // Arriving from the login page, the email they typed comes along (kept in
+  // session storage, not the address bar).
+  useEffect(() => {
+    try {
+      const carried = sessionStorage.getItem('signup-email');
+      if (carried) setEmail((e) => e || carried);
+    } catch {
+      /* storage blocked */
+    }
+  }, []);
+  const [note, setNote] = useState('');
   const [unitId, setUnitId] = useState('');
   const [website, setWebsite] = useState('');
   const [busy, setBusy] = useState(false);
@@ -27,7 +41,7 @@ export function RegisterForm({ code, place, places }: { code?: string; place?: P
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, unit_id: place ? undefined : unitId, full_name: name, email, website }),
+        body: JSON.stringify({ code, unit_id: place ? undefined : unitId, full_name: name, email, note, website }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) setError(body.error ?? 'Something went wrong. Try again in a minute.');
@@ -81,17 +95,28 @@ export function RegisterForm({ code, place, places }: { code?: string; place?: P
       {!place && (
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Where you work</span>
+          <span className="mb-1 block text-sm text-gray-600">
+            Pick your store or team. If you work across a whole area, pick the area or state.
+          </span>
           <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={input}>
             <option value="">Choose...</option>
             {(places ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {'  '.repeat(p.depth ?? 0)}
                 {p.name}
+                {p.kind ? ` (${levelLabel(p.kind)})` : ''}
               </option>
             ))}
           </select>
         </label>
       )}
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium">Note for the approver (optional)</span>
+        <span className="mb-1 block text-sm text-gray-600">
+          Anything that helps them say yes, like your role, your manager&apos;s name or when you started.
+        </span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} className={input} />
+      </label>
       {/* Trap for bots: hidden from people and screen readers. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
         <label>

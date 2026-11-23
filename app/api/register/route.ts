@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { provisionUser } from '@/lib/provision';
 import { sendApprovalRequest, sendWelcome } from '@/lib/email';
 
-// POST /api/register  { code?, unit_id?, email, full_name, website }
+// POST /api/register  { code?, unit_id?, email, full_name, note?, website }
 //
 // Public self-registration. The database decides everything
 // (submit_registration, 20261124000100_self_registration.sql): which place,
@@ -26,7 +26,7 @@ async function allowed(service: ReturnType<typeof createServiceClient>, key: str
 }
 
 export async function POST(request: Request) {
-  let body: { code?: unknown; unit_id?: unknown; email?: unknown; full_name?: unknown; website?: unknown };
+  let body: { code?: unknown; unit_id?: unknown; email?: unknown; full_name?: unknown; note?: unknown; website?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   }
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : '';
+  const note = typeof body.note === 'string' ? body.note.trim() : '';
   const code = typeof body.code === 'string' ? body.code.trim().slice(0, 64) : '';
   const unitId = typeof body.unit_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.unit_id) ? body.unit_id : null;
 
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
     return NextResponse.json({ error: "That email address doesn't look right." }, { status: 400 });
+  }
+  if (note.length > 500) {
+    return NextResponse.json({ error: 'Keep the note under 500 characters.' }, { status: 400 });
   }
   if (!code && !unitId) {
     return NextResponse.json({ error: 'Choose where you work.' }, { status: 400 });
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
     p_full_name: fullName,
     p_unit: unitId,
     p_code: code || null,
+    p_note: note || null,
   });
   if (error) {
     if (/closed/.test(error.message)) {
@@ -112,7 +117,7 @@ export async function POST(request: Request) {
     const place = unit?.name ?? 'your site';
     await Promise.all(
       ((approvers ?? []) as { email: string }[]).map((a) =>
-        sendApprovalRequest(a.email, { name: fullName, email, place })
+        sendApprovalRequest(a.email, { name: fullName, email, place, note })
       )
     );
   }

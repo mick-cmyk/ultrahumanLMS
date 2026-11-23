@@ -87,12 +87,16 @@ export async function sendWelcome(to: string, name: string) {
 }
 
 /** Sent to each approver for the place a request is for. */
-export async function sendApprovalRequest(to: string, req: { name: string; email: string; place: string }) {
+export async function sendApprovalRequest(
+  to: string,
+  req: { name: string; email: string; place: string; note?: string }
+) {
   const { html, text } = renderEmail({
     heading: 'Someone is waiting for approval',
     paragraphs: [
       `${req.name} (${req.email}) has asked to join the training for ${req.place}.`,
-      'If you know them, approve them and they will get an email to say they can log in. If not, decline the request.',
+      ...(req.note ? [`Their note: "${req.note}"`] : []),
+      'If you know them, approve them (you can choose their role as you do) and they will get an email to say they can log in. If not, decline the request.',
     ],
     button: { label: 'Approve or decline', url: `${appUrl()}/approvals` },
   });

@@ -145,8 +145,67 @@ select is(public.set_unit_signup('a3000000-0000-0000-0000-000000000004', false),
 reset role;
 select is((select signup_code from public.units where id = 'a3000000-0000-0000-0000-000000000004'), null, 'S2 has no link now');
 
+-- ------------------------------------------------------- notes and roles (round two)
+-- back to approval mode, with the general page on
+update public.app_settings set value = 'off' where key = 'registration_auto_approve';
+update public.app_settings set value = 'on' where key = 'registration_general';
+
+select is(public.submit_registration('noted@example.test', 'Noted', 'a3000000-0000-0000-0000-000000000003', null, '  Started Monday, on nights  ') ->> 'status',
+  'pending', 'a request can carry a note');
+select is((select note from public.registration_requests where email = 'noted@example.test'), 'Started Monday, on nights', 'the note is trimmed and kept');
+select throws_ok($$select public.submit_registration('long@example.test','L','a3000000-0000-0000-0000-000000000003',null, repeat('x', 501))$$,
+  '22023', null, 'a note over 500 characters is refused');
+select is(public.submit_registration('boss@example.test', 'Would be boss', 'a3000000-0000-0000-0000-000000000003', null) ->> 'status',
+  'pending', 'second request for S1');
+update public.registration_requests set id = 'f3000000-0000-0000-0000-000000000003' where email = 'noted@example.test';
+update public.registration_requests set id = 'f3000000-0000-0000-0000-000000000004' where email = 'boss@example.test';
+
+-- a manager whose scope is the brand (above S1) and one whose scope is S1 itself
+insert into auth.users (id, email) values ('b3000000-0000-0000-0000-000000000006', 'brandmgr@sr.test');
+update public.users set role='manager', is_approver=true, unit_id='a3000000-0000-0000-0000-000000000002' where id='b3000000-0000-0000-0000-000000000006';
+insert into public.user_scopes (user_id, unit_id) values ('b3000000-0000-0000-0000-000000000006', 'a3000000-0000-0000-0000-000000000002');
+
+select set_config('request.jwt.claim.sub','b3000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+select is((select note from public.pending_registrations() where id = 'f3000000-0000-0000-0000-000000000003'), 'Started Monday, on nights', 'approvers see the note');
+select is((select role_choices from public.pending_registrations() where id = 'f3000000-0000-0000-0000-000000000003'), array['learner'],
+  'an S1 manager can only approve S1 people as learners (no peer managers)');
+select throws_ok($$select public.decide_registration('f3000000-0000-0000-0000-000000000004', true, null, 'manager')$$,
+  '42501', 'registration: role not allowed', 'and is refused if they try manager');
+reset role;
+
+select set_config('request.jwt.claim.sub','b3000000-0000-0000-0000-000000000006', true);
+set local role authenticated;
+select is((select role_choices from public.pending_registrations() where id = 'f3000000-0000-0000-0000-000000000004'), array['learner','viewer','manager'],
+  'a brand manager can make an S1 person a viewer or manager');
+reset role;
+
+-- the login made for the request (as the route would, after the request)
+insert into auth.users (id, email) values ('b3000000-0000-0000-0000-000000000007', 'boss@example.test');
+update public.users set unit_id = 'a3000000-0000-0000-0000-000000000003' where id = 'b3000000-0000-0000-0000-000000000007';
+
+select set_config('request.jwt.claim.sub','b3000000-0000-0000-0000-000000000006', true);
+set local role authenticated;
+select is(public.decide_registration('f3000000-0000-0000-0000-000000000004', true, 'b3000000-0000-0000-0000-000000000007', 'manager') ->> 'role_applied',
+  'true', 'brand manager approves them as a manager');
+reset role;
+select is((select role from public.users where id = 'b3000000-0000-0000-0000-000000000007'), 'manager', 'the new login is a manager');
+select is((select array_agg(unit_id) from public.user_scopes where user_id = 'b3000000-0000-0000-0000-000000000007'),
+  array['a3000000-0000-0000-0000-000000000003'::uuid], 'and sees their own place');
+
+-- an existing login never has its role changed by approval
+update public.registration_requests set created_at = now() + interval '1 hour' where id = 'f3000000-0000-0000-0000-000000000003';
+insert into auth.users (id, email) values ('b3000000-0000-0000-0000-000000000008', 'noted@example.test');
+select set_config('request.jwt.claim.sub','b3000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+select is(public.decide_registration('f3000000-0000-0000-0000-000000000003', true, 'b3000000-0000-0000-0000-000000000008', 'admin') ->> 'role_applied',
+  'false', 'a login older than the request keeps its role');
+reset role;
+select is((select role from public.users where id = 'b3000000-0000-0000-0000-000000000008'), 'learner', 'still a learner');
+select ok(not has_function_privilege('anon', 'public.registration_role_choices(uuid)', 'execute'), 'anon cannot ask about roles');
+
 -- ------------------------------------------------------- privileges
-select ok(not has_function_privilege('authenticated', 'public.submit_registration(text,text,uuid,text)', 'execute'), 'only the service role submits');
+select ok(not has_function_privilege('authenticated', 'public.submit_registration(text,text,uuid,text,text)', 'execute'), 'only the service role submits');
 select ok(not has_function_privilege('authenticated', 'public.registration_approvers(uuid)', 'execute'), 'approver emails are service role only');
 select ok(not has_function_privilege('anon', 'public.pending_registrations()', 'execute'), 'anon cannot list requests');
 select ok(has_function_privilege('anon', 'public.registration_options(text)', 'execute'), 'anon can load the sign-up page');

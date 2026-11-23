@@ -10,7 +10,7 @@ export default async function LoginPage() {
 
   return (
     <div className="mt-10 max-w-sm space-y-6">
-      <LoginForm autoFocus variant="page" />
+      <LoginForm autoFocus variant="page" signupOpen={signupOpen} />
       {signupOpen && (
         <p className="text-sm text-gray-600">
           New here?{' '}

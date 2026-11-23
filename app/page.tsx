@@ -15,7 +15,10 @@ const check = getBrand().voice.checkName;
 // user.
 export default async function MyTrainingPage() {
   const profile = await getProfile();
-  if (!profile) return <Landing />;
+  if (!profile) {
+    const { data } = await (await createClient()).rpc('registration_options', { p_code: null });
+    return <Landing signupOpen={(data as { open?: boolean } | null)?.open === true} />;
+  }
   // Admins and viewers have no personal training; send them to reporting.
   if (homeFor(profile.role) !== '/') redirect(homeFor(profile.role));
 

@@ -3,6 +3,7 @@
 import { getBrand } from '@/brands';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 const brand = getBrand();
@@ -12,13 +13,15 @@ type Props = {
   autoFocus?: boolean;
   /** Heading level and wording differ between the full page and the landing card. */
   variant?: 'page' | 'card';
+  /** The general sign-up page is on: offer it to an email with no account. */
+  signupOpen?: boolean;
 };
 
-function Form({ autoFocus = false, variant = 'page' }: Props) {
+function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error' | 'unknown'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const linkError = searchParams.get('error');
   const Heading = variant === 'page' ? 'h1' : 'h2';
@@ -59,12 +62,12 @@ function Form({ autoFocus = false, variant = 'page' }: Props) {
       },
     });
     if (error) {
+      if (/not found|signups not allowed/i.test(error.message)) {
+        setStatus('unknown');
+        return;
+      }
       setStatus('error');
-      setErrorMessage(
-        /not found|signups not allowed/i.test(error.message)
-          ? "We couldn't find that email. Check the spelling, or ask your manager to add you."
-          : 'Something went wrong sending your link. Try again in a minute.'
-      );
+      setErrorMessage('Something went wrong sending your link. Try again in a minute.');
       return;
     }
     setStatus('sent');
@@ -118,6 +121,34 @@ function Form({ autoFocus = false, variant = 'page' }: Props) {
           {status === 'sending' ? 'Sending…' : 'Send me a login link'}
         </button>
       </form>
+      {status === 'unknown' && (
+        <div role="alert" className="space-y-3 rounded bg-amber-50 p-3 text-sm text-amber-800">
+          {signupOpen ? (
+            <>
+              <p>
+                There&apos;s no account for <strong>{email.trim()}</strong> yet. Check the spelling, or ask for access
+                and tell us where you work.
+              </p>
+              <Link
+                href="/register"
+                onClick={() => {
+                  // Carry the email over without putting it in the address bar.
+                  try {
+                    sessionStorage.setItem('signup-email', email.trim());
+                  } catch {
+                    /* storage blocked: they type it again */
+                  }
+                }}
+                className="inline-block rounded bg-brand px-4 py-2 font-medium text-brand-fg hover:opacity-90"
+              >
+                Ask for access
+              </Link>
+            </>
+          ) : (
+            <p>We couldn&apos;t find that email. Check the spelling, or ask your manager to add you.</p>
+          )}
+        </div>
+      )}
       {status === 'error' && (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {errorMessage}
