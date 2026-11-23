@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { levelLabel, type Unit } from '@/lib/units';
+import { levelLabel, unitPathLabel, type Unit } from '@/lib/units';
 
 type Role = 'learner' | 'viewer' | 'manager' | 'admin';
 type User = {
@@ -45,6 +45,7 @@ export function PeopleClient({
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
   const scopesByUser = useMemo(() => {
@@ -340,128 +341,234 @@ export function PeopleClient({
         <span className="ml-auto text-sm text-gray-500">{filtered.length} people</span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 text-left text-gray-500">
-              <th className="py-2 pr-4">Person</th>
-              <th className="py-2 pr-4">Where</th>
-              <th className="py-2 pr-4">Role</th>
-              <th className="py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((u) => {
-              const mine = scopesByUser.get(u.id) ?? [];
-              const usesScope = u.role === 'viewer' || u.role === 'manager';
-              return (
-                <tr
-                  key={u.id}
-                  className={`border-b border-gray-100 align-top ${u.active ? '' : 'text-gray-500'}`}
-                >
-                  <td className="py-2 pr-4 align-top">
-                    {/* Email under the name, so the table fits without scrolling sideways. */}
-                    <span className="block font-medium">{u.full_name ?? '-'}</span>
-                    <span className="block break-all text-xs text-gray-600">{u.email}</span>
-                  </td>
-                  <td className="py-2 pr-4 align-top">
-                    <select
-                      value={u.unit_id ?? ''}
-                      disabled={busyId === u.id}
-                      onChange={(e) => update(u.id, { unit_id: e.target.value || null })}
-                      className="max-w-[14rem] rounded border border-gray-300 px-2 py-1"
-                    >
-                      <option value="">Not placed</option>
-                      {units.map(unitOption)}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4 align-top">
-                    <select
-                      value={u.role}
-                      disabled={busyId === u.id || u.id === me}
-                      onChange={(e) => update(u.id, { role: e.target.value as Role })}
-                      title={ROLE_HELP[u.role]}
-                      className="rounded border border-gray-300 px-2 py-1"
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                    {(u.role === 'manager' || u.role === 'admin') && (
-                      <label
-                        className="mt-2 flex items-center gap-2 text-xs"
-                        title="Approvers are emailed about sign-up requests for the places they can see, and approve them."
-                      >
-                        <input
-                          type="checkbox"
-                          checked={u.is_approver}
-                          disabled={busyId === u.id}
-                          onChange={(e) => update(u.id, { is_approver: e.target.checked })}
-                        />
-                        Approver
-                      </label>
-                    )}
-                    {usesScope && (
-                      <div className="mt-2 space-y-1">
-                        <div className="text-xs text-gray-500">Can see:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {mine.map((unitId) => (
-                            <button
-                              key={unitId}
-                              onClick={() => update(u.id, { remove_scope: unitId })}
-                              disabled={busyId === u.id}
-                              title="Remove"
-                              className="rounded-full border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-50"
-                            >
-                              {unitById.get(unitId)?.name ?? unitId} ✕
-                            </button>
-                          ))}
-                          {mine.length === 0 && (
-                            <span className="text-xs text-amber-700">
-                              Nothing yet, so they see no one.
-                            </span>
-                          )}
-                        </div>
-                        <select
-                          value=""
-                          disabled={busyId === u.id}
-                          onChange={(e) => e.target.value && update(u.id, { add_scope: e.target.value })}
-                          className="w-full max-w-[14rem] rounded border border-gray-300 px-2 py-1 text-xs"
-                        >
-                          <option value="">Add a unit...</option>
-                          {units.filter((x) => !mine.includes(x.id)).map(unitOption)}
-                        </select>
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 align-top">
-                    <button
-                      onClick={() => update(u.id, { active: !u.active })}
-                      disabled={busyId === u.id || u.id === me}
-                      className={`rounded border px-2 py-1 text-xs ${
-                        u.active
-                          ? 'border-gray-300 hover:bg-gray-50'
-                          : 'border-green-300 text-green-700 hover:bg-green-50'
-                      }`}
-                    >
-                      {u.active ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={4} className="py-3 text-gray-500">
-                  No one matches those filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ul className="divide-y divide-gray-200 border-y border-gray-200">
+        {filtered.map((u) => (
+          <PersonRow
+            key={u.id}
+            user={u}
+            isMe={u.id === me}
+            open={openId === u.id}
+            onToggle={() => setOpenId(openId === u.id ? null : u.id)}
+            busy={busyId === u.id}
+            units={units}
+            unitById={unitById}
+            scopes={scopesByUser.get(u.id) ?? []}
+            update={(patch) => update(u.id, patch)}
+          />
+        ))}
+        {filtered.length === 0 && <li className="py-3 text-sm text-gray-500">No one matches those filters.</li>}
+      </ul>
     </div>
+  );
+}
+
+type Patch = {
+  active?: boolean;
+  role?: Role;
+  unit_id?: string | null;
+  is_approver?: boolean;
+  add_scope?: string;
+  remove_scope?: string;
+};
+
+const ROLE_NAME: Record<Role, string> = { learner: 'Learner', viewer: 'Viewer', manager: 'Manager', admin: 'Admin' };
+
+// One person: a short, readable summary line, and an Edit panel with each
+// setting labelled and explained. Changes save as soon as they're made.
+function PersonRow({
+  user: u,
+  isMe,
+  open,
+  onToggle,
+  busy,
+  units,
+  unitById,
+  scopes,
+  update,
+}: {
+  user: User;
+  isMe: boolean;
+  open: boolean;
+  onToggle: () => void;
+  busy: boolean;
+  units: TreeUnit[];
+  unitById: Map<string, TreeUnit>;
+  scopes: string[];
+  update: (patch: Patch) => void;
+}) {
+  const unit = u.unit_id ? unitById.get(u.unit_id) : undefined;
+  const usesScope = u.role === 'viewer' || u.role === 'manager';
+  const canApprove = u.role === 'manager' || u.role === 'admin';
+  const place = (id: string) => {
+    const x = unitById.get(id);
+    return x ? `${x.name} (${levelLabel(x.kind)})` : 'Unknown place';
+  };
+  const option = (x: TreeUnit) => (
+    <option key={x.id} value={x.id}>
+      {'   '.repeat(x.depth)}
+      {x.name} ({levelLabel(x.kind)})
+    </option>
+  );
+  const field = 'w-full rounded border border-gray-300 bg-surface px-3 py-2';
+  const panelId = `person-${u.id}`;
+  const path = unit ? unitPathLabel(unit, unitById) : '';
+
+  return (
+    <li className={u.active ? '' : 'text-gray-500'}>
+      {/* Summary */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 py-3">
+        <div className="min-w-[12rem] flex-1">
+          <div className="font-medium">
+            {u.full_name ?? '-'}
+            {isMe && <span className="ml-2 text-xs font-normal text-gray-500">(you)</span>}
+          </div>
+          <div className="break-all text-sm text-gray-600">{u.email}</div>
+        </div>
+        <div className="min-w-[10rem] flex-1 text-sm">
+          {unit ? (
+            <>
+              <div>{unit.name}</div>
+              <div className="text-xs text-gray-500">{levelLabel(unit.kind)}</div>
+            </>
+          ) : (
+            <span className="text-amber-700">Not placed anywhere</span>
+          )}
+        </div>
+        <div className="flex w-40 flex-wrap items-center gap-1 text-sm">
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 font-medium text-gray-800">{ROLE_NAME[u.role]}</span>
+          {canApprove && u.is_approver && (
+            <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand-ink">Approver</span>
+          )}
+          {!u.active && (
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">Deactivated</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="min-h-11 rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+        >
+          {open ? 'Close' : 'Edit'}
+        </button>
+      </div>
+
+      {/* Edit panel */}
+      {open && (
+        <div id={panelId} className="mb-4 grid gap-5 rounded border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Where they work</span>
+            <span className="mb-2 block text-sm text-gray-600">Decides which courses reach them and whose reports they show in.</span>
+            <select
+              value={u.unit_id ?? ''}
+              disabled={busy}
+              onChange={(e) => update({ unit_id: e.target.value || null })}
+              className={field}
+            >
+              <option value="">Not placed anywhere</option>
+              {units.map(option)}
+            </select>
+            {path && <span className="mt-1 block text-xs text-gray-500">{path}</span>}
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Role</span>
+            <span className="mb-2 block text-sm text-gray-600">{ROLE_HELP[u.role]}.</span>
+            <select
+              value={u.role}
+              disabled={busy || isMe}
+              onChange={(e) => update({ role: e.target.value as Role })}
+              className={field}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_NAME[r]}
+                </option>
+              ))}
+            </select>
+            {isMe && <span className="mt-1 block text-xs text-gray-500">You can&apos;t change your own role.</span>}
+          </label>
+
+          {usesScope && (
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm font-medium">What they can see</span>
+              <span className="mb-2 block text-sm text-gray-600">
+                Each place includes everything under it.{u.role === 'manager' ? ' They can also add and remove staff there.' : ''}
+              </span>
+              {scopes.length === 0 ? (
+                <p className="mb-2 rounded bg-amber-50 p-2 text-sm text-amber-800">
+                  Nothing yet, so their reports are empty. Add a place below.
+                </p>
+              ) : (
+                <ul className="mb-2 space-y-2">
+                  {scopes.map((id) => (
+                    <li key={id} className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-surface px-3 py-1">
+                      <span className="text-sm">{place(id)}</span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => update({ remove_scope: id })}
+                        aria-label={`Remove ${unitById.get(id)?.name ?? 'this place'}`}
+                        className="min-h-11 rounded px-3 text-sm text-red-700 hover:bg-gray-100"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <select
+                value=""
+                disabled={busy}
+                onChange={(e) => e.target.value && update({ add_scope: e.target.value })}
+                aria-label="Add a place they can see"
+                className={field}
+              >
+                <option value="">+ Add a place they can see...</option>
+                {units.filter((x) => !scopes.includes(x.id)).map(option)}
+              </select>
+            </div>
+          )}
+
+          {canApprove && (
+            <label className="flex items-start gap-3 sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5"
+                checked={u.is_approver}
+                disabled={busy}
+                onChange={(e) => update({ is_approver: e.target.checked })}
+              />
+              <span>
+                <span className="block text-sm font-medium">Approver</span>
+                <span className="block text-sm text-gray-600">
+                  Gets an email when someone signs up for a place they can see, and approves or declines them.
+                </span>
+              </span>
+            </label>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 sm:col-span-2">
+            <button
+              type="button"
+              onClick={() => update({ active: !u.active })}
+              disabled={busy || isMe}
+              className={`min-h-11 rounded border px-4 py-2 text-sm ${
+                u.active ? 'border-gray-300 text-red-700 hover:bg-gray-100' : 'border-green-300 text-green-700 hover:bg-green-50'
+              }`}
+            >
+              {u.active ? 'Deactivate' : 'Reactivate'}
+            </button>
+            <span className="text-sm text-gray-600">
+              {u.active
+                ? 'Deactivating stops them logging in and takes them out of reports. Their history is kept.'
+                : 'Reactivating lets them log in again.'}
+            </span>
+            {busy && <span className="ml-auto text-sm text-gray-500">Saving...</span>}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
