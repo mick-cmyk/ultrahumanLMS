@@ -4,6 +4,7 @@ import { getProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { bunnyConfigured, fetchBunnyVideo, parseBunnyVideo } from '@/lib/bunny';
 import { questionsProblem } from '@/lib/quiz-csv';
+import { writtenPromptsProblem, type WrittenPrompt } from '@/lib/lesson-import';
 import { checkCourse, hasErrors } from '@/lib/course-check';
 import { loadCourseTree } from '@/lib/course-tree';
 
@@ -134,6 +135,7 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       let note: string | null = null;
       if ('title' in b) patch.title = str(b.title, 200) || fail('The lesson needs a title.');
       if ('script' in b) patch.script = str(b.script, 20000) || null;
+      if ('expectancy' in b) patch.expectancy = str(b.expectancy, 1000) || null;
       if ('duration_seconds' in b) {
         const d = b.duration_seconds;
         if (d === null || d === '') patch.duration_seconds = null;
@@ -195,6 +197,44 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       return { ok: true };
     }
 
+    // ----------------------------------------------- written prompts, import
+    case 'written.set': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      await setWrittenPrompts(supabase, lessonId, b.written_prompts);
+      return { ok: true };
+    }
+    // A lesson file from the question maker: quiz, written prompts and the
+    // sentence shown before the video, in one go. Questions first, because
+    // they're the part the database is most likely to refuse.
+    case 'lesson.import': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      const questions = b.questions ?? [];
+      const problem = questionsProblem(questions);
+      if (problem) fail(problem);
+      const promptProblem = writtenPromptsProblem(b.written_prompts ?? []);
+      if (promptProblem) fail(promptProblem);
+      const pass = Number(b.pass_mark ?? 0.8);
+      if (!PASS_MARKS.includes(pass)) fail('Pick a pass mark from the list.');
+      const lesson = check(
+        await supabase.from('lessons').select('id').eq('id', lessonId).eq('kind', 'video').maybeSingle()
+      );
+      if (!lesson) fail('That lesson is a SCORM package or no longer exists.');
+      if ((questions as unknown[]).length === 0) {
+        check(await supabase.from('quizzes').delete().eq('lesson_id', lessonId));
+      } else {
+        check(
+          await supabase
+            .from('quizzes')
+            .upsert({ lesson_id: lessonId, pass_mark: pass, questions }, { onConflict: 'lesson_id' })
+        );
+      }
+      check(
+        await supabase.from('lessons').update({ expectancy: str(b.expectancy, 1000) || null }).eq('id', lessonId)
+      );
+      await setWrittenPrompts(supabase, lessonId, b.written_prompts ?? []);
+      return { ok: true };
+    }
+
     // ------------------------------------------------------------- Bunny
     case 'bunny.lookup': {
       const v = parseBunnyVideo(str(b.video, 2000) ?? '') ?? fail("That doesn't look like a Bunny video link or ID.");
@@ -238,6 +278,36 @@ async function move(supabase: SupabaseClient, table: string, parentCol: string, 
   [ids[i], ids[j]] = [ids[j], ids[i]];
   for (const [k, sid] of ids.entries()) {
     check(await supabase.from(table).update({ sort_order: k + 1 }).eq('id', sid));
+  }
+}
+
+// Upsert by id and drop the rest. Ids come from the question maker and stay
+// stable, so re-importing updates prompts in place; learners' answers are kept
+// either way (they don't cascade from prompts).
+async function setWrittenPrompts(supabase: SupabaseClient, lessonId: string, prompts: unknown) {
+  const problem = writtenPromptsProblem(prompts);
+  if (problem) fail(problem);
+  const list = prompts as WrittenPrompt[];
+  if (list.length) {
+    check(
+      await supabase.from('written_prompts').upsert(
+        list.map((p, i) => ({
+          lesson_id: lessonId,
+          id: p.id,
+          sort_order: i + 1,
+          prompt: p.prompt.trim(),
+          model_answer: p.model_answer?.trim() || null,
+          max_words: p.max_words ?? null,
+        })),
+        { onConflict: 'lesson_id,id' }
+      )
+    );
+  }
+  const existing = check(await supabase.from('written_prompts').select('id').eq('lesson_id', lessonId)) ?? [];
+  const keep = new Set(list.map((p) => p.id));
+  const drop = (existing as { id: string }[]).map((r) => r.id).filter((x) => !keep.has(x));
+  if (drop.length) {
+    check(await supabase.from('written_prompts').delete().eq('lesson_id', lessonId).in('id', drop));
   }
 }
 

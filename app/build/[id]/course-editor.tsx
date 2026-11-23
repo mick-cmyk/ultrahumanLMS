@@ -10,6 +10,7 @@ import {
   templateCsv,
   type QuizQuestion,
 } from '@/lib/quiz-csv';
+import { parseLessonImport, type LessonImport, type WrittenPrompt } from '@/lib/lesson-import';
 
 type Lesson = {
   id: string;
@@ -20,6 +21,8 @@ type Lesson = {
   duration_seconds: number | null;
   script: string | null;
   quiz: { pass_mark: number; questions: QuizQuestion[] } | null;
+  expectancy: string | null;
+  written_prompts: WrittenPrompt[];
 };
 type Module = { id: string; title: string; intro: string | null; lessons: Lesson[] };
 type Course = { id: string; title: string; description: string | null; published: boolean; modules: Module[] };
@@ -308,7 +311,10 @@ function LessonCard({
   const status = isScorm
     ? 'SCORM package'
     : [lesson.bunny_video_id || lesson.sample_video_url ? 'Video set' : 'No video yet',
-       qCount ? `${qCount} question${qCount === 1 ? '' : 's'}` : 'No questions'].join(', ');
+       qCount ? `${qCount} question${qCount === 1 ? '' : 's'}` : 'No questions',
+       ...(lesson.written_prompts.length
+         ? [`${lesson.written_prompts.length} written prompt${lesson.written_prompts.length === 1 ? '' : 's'}`]
+         : [])].join(', ');
 
   return (
     <div className="rounded border border-gray-200">
@@ -387,7 +393,11 @@ function LessonCard({
             <Msg msg={s.msg} />
           </div>
 
+          <BeforeVideo key={`exp-${lesson.expectancy ?? ''}`} lesson={lesson} />
+
           <Questions lesson={lesson} />
+
+          <Written lesson={lesson} />
         </div>
       )}
     </div>
@@ -399,7 +409,9 @@ function Questions({ lesson }: { lesson: Lesson }) {
   const current = lesson.quiz?.questions ?? [];
   const [passMark, setPassMark] = useState(lesson.quiz?.pass_mark ?? 0.8);
   const [pending, setPending] = useState<{ questions: QuizQuestion[]; errors: string[]; file: string } | null>(null);
+  const [imported, setImported] = useState<{ value: LessonImport | null; errors: string[]; file: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const jsonRef = useRef<HTMLInputElement>(null);
   const s = useSave();
   const slug = lesson.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'lesson';
 
@@ -418,6 +430,31 @@ function Questions({ lesson }: { lesson: Lesson }) {
     }
     const parsed = parseQuestionsCsv(await f.text(), current);
     setPending({ ...parsed, file: f.name });
+  }
+
+  async function onJson(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    s.setMsg(null);
+    setPending(null);
+    if (f.size > 1024 * 1024) {
+      setImported({ value: null, errors: ['That file is too big for a lesson. Check it is the right file.'], file: f.name });
+      return;
+    }
+    setImported({ ...parseLessonImport(await f.text()), file: f.name });
+  }
+
+  if (imported) {
+    return (
+      <ImportPreview
+        lesson={lesson}
+        imported={imported}
+        passMark={passMark}
+        setPassMark={setPassMark}
+        onDone={() => setImported(null)}
+      />
+    );
   }
 
   const shown = pending && pending.errors.length === 0 ? pending.questions : current;
@@ -440,6 +477,10 @@ function Questions({ lesson }: { lesson: Lesson }) {
           Upload questions (CSV)
         </button>
         <input ref={fileRef} type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} aria-label="Questions CSV file" />
+        <button type="button" className={btn} onClick={() => jsonRef.current?.click()}>
+          Import from question maker (JSON)
+        </button>
+        <input ref={jsonRef} type="file" accept=".json,application/json" className="sr-only" onChange={onJson} aria-label="Lesson file from the question maker" />
         {current.length > 0 && (
           <button type="button" className={btn} onClick={() => download(`${slug}-questions.csv`, questionsToCsv(current))}>
             Download these questions
@@ -531,6 +572,211 @@ function Questions({ lesson }: { lesson: Lesson }) {
         )}
       </div>
       <Msg msg={s.msg} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------- before the video
+function BeforeVideo({ lesson }: { lesson: Lesson }) {
+  const [text, setText] = useState(lesson.expectancy ?? '');
+  const s = useSave();
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium">Before the video (optional)</span>
+        <span className="mb-1 block text-sm text-gray-600">
+          One sentence shown above the video, telling staff what they&apos;ll have to explain afterwards.
+          Told first, it changes how they watch. The question maker writes one for you.
+        </span>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={1000} className={input} />
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className={btn} disabled={s.busy || text === (lesson.expectancy ?? '')}
+          onClick={() => s.save({ action: 'lesson.update', id: lesson.id, expectancy: text }, 'Saved.')}>
+          Save sentence
+        </button>
+        <Msg msg={s.msg} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------- written prompts
+function Written({ lesson }: { lesson: Lesson }) {
+  const s = useSave();
+  if (lesson.written_prompts.length === 0) return null;
+  return (
+    <div className="space-y-3 rounded bg-gray-50 p-3">
+      <div>
+        <h3 className="font-medium">Explain it in your own words</h3>
+        <p className="text-sm text-gray-600">
+          Not marked. Staff write an answer after the video, then see the model answer. They can&apos;t change
+          their answer after that. These come in with a question maker import.
+        </p>
+      </div>
+      <ol className="space-y-3">
+        {lesson.written_prompts.map((p, i) => (
+          <li key={p.id} className="rounded border border-gray-200 bg-surface p-3 text-sm">
+            <p className="font-medium">
+              {i + 1}. {p.prompt}
+              {p.max_words ? <span className="font-normal text-gray-600"> (up to {p.max_words} words)</span> : null}
+            </p>
+            {p.model_answer && <p className="mt-1 text-gray-600">Model answer: {p.model_answer}</p>}
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" disabled={s.busy} className={`${btn} text-red-700`}
+          onClick={() => {
+            if (confirm('Remove the written prompts from this lesson? What staff already wrote is kept.')) {
+              s.save({ action: 'written.set', lesson_id: lesson.id, written_prompts: [] }, 'Written prompts removed.');
+            }
+          }}>
+          Remove written prompts
+        </button>
+        <Msg msg={s.msg} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------- question maker import
+function ImportPreview({
+  lesson,
+  imported,
+  passMark,
+  setPassMark,
+  onDone,
+}: {
+  lesson: Lesson;
+  imported: { value: LessonImport | null; errors: string[]; file: string };
+  passMark: number;
+  setPassMark: (n: number) => void;
+  onDone: () => void;
+}) {
+  const s = useSave();
+  const v = imported.value;
+  const replacing = (lesson.quiz?.questions.length ?? 0) > 0 || lesson.written_prompts.length > 0 || Boolean(lesson.expectancy);
+
+  return (
+    <div className="space-y-3 rounded bg-gray-50 p-3">
+      <h3 className="font-medium">Import from the question maker</h3>
+
+      {!v ? (
+        <div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
+          <p className="font-medium">Nothing was saved. {imported.file} couldn&apos;t be read:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {imported.errors.map((er) => (
+              <li key={er}>{er}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <>
+          <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+            {v.source.set_title ? <>From &ldquo;{v.source.set_title}&rdquo;{v.source.client ? ` (${v.source.client})` : ''}. </> : null}
+            {v.questions.length} question{v.questions.length === 1 ? '' : 's'}, {v.written_prompts.length} written prompt
+            {v.written_prompts.length === 1 ? '' : 's'}. Check them below, then save.
+            {replacing && ' This replaces the questions, written prompts and before-video sentence already on this lesson.'}
+            {v.source.includes_drafts && ' This file includes questions nobody has approved yet.'}
+          </p>
+
+          {v.idea && (
+            <p className="text-sm">
+              <span className="font-medium">The idea these test:</span> {v.idea}
+            </p>
+          )}
+          {v.expectancy && (
+            <p className="text-sm">
+              <span className="font-medium">Before the video:</span> {v.expectancy}
+            </p>
+          )}
+
+          {v.questions.length > 0 && (
+            <ol className="space-y-3">
+              {v.questions.map((q, i) => (
+                <li key={q.id} className="rounded border border-gray-200 bg-surface p-3 text-sm">
+                  <p className="font-medium">
+                    {i + 1}. {q.text}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {q.options.map((o, j) => (
+                      <li key={j} className={j === q.correct_index ? 'font-medium text-green-800' : 'text-gray-700'}>
+                        {ANSWER_LETTERS[j]}. {o} {j === q.correct_index && '(correct)'}
+                      </li>
+                    ))}
+                  </ul>
+                  {q.explanation && <p className="mt-1 text-gray-600">Why: {q.explanation}</p>}
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {v.written_prompts.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Explain it in your own words (not marked)</p>
+              <ol className="space-y-2">
+                {v.written_prompts.map((p) => (
+                  <li key={p.id} className="rounded border border-gray-200 bg-surface p-3 text-sm">
+                    <p className="font-medium">{p.prompt}</p>
+                    {p.model_answer && <p className="mt-1 text-gray-600">Model answer: {p.model_answer}</p>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {v.skipped.length > 0 && (
+            <div className="text-sm text-gray-600">
+              <p className="font-medium">Left out ({v.skipped.length}):</p>
+              <ul className="mt-1 list-disc pl-5">
+                {v.skipped.map((k) => (
+                  <li key={k.id}>
+                    {k.stem ? `${k.stem.slice(0, 80)}${k.stem.length > 80 ? '…' : ''}: ` : ''}
+                    {k.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Pass mark</span>
+              <select value={passMark} onChange={(e) => setPassMark(Number(e.target.value))} className={input}>
+                {[0.6, 0.7, 0.8, 0.9, 1].map((pm) => (
+                  <option key={pm} value={pm}>
+                    {Math.round(pm * 100)}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" disabled={s.busy} className={primary}
+              onClick={async () => {
+                const res = await s.save(
+                  {
+                    action: 'lesson.import',
+                    lesson_id: lesson.id,
+                    questions: v.questions,
+                    written_prompts: v.written_prompts,
+                    expectancy: v.expectancy,
+                    pass_mark: passMark,
+                  },
+                  'Imported.'
+                );
+                if (res) onDone();
+              }}>
+              {s.busy ? 'Saving…' : 'Save this lesson'}
+            </button>
+          </div>
+        </>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className={btn} onClick={onDone}>
+          {v ? 'Cancel' : 'Close'}
+        </button>
+        <Msg msg={s.msg} />
+      </div>
     </div>
   );
 }

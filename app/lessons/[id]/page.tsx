@@ -5,6 +5,7 @@ import { signedEmbedUrl } from '@/lib/bunny';
 import { VideoPlayer } from './video-player';
 import { Quiz } from './quiz';
 import { ScormPlayer } from './scorm-player';
+import { WrittenPrompts } from './written-prompts';
 
 export default async function LessonPage({
   params,
@@ -21,7 +22,7 @@ export default async function LessonPage({
     supabase
       .from('lessons')
       .select(
-        'id, title, kind, scorm_package_id, bunny_video_id, sample_video_url, image_url, script, duration_seconds, watch_threshold, modules(id, title, course_id, courses(id, title))'
+        'id, title, kind, scorm_package_id, bunny_video_id, sample_video_url, image_url, script, expectancy, duration_seconds, watch_threshold, modules(id, title, course_id, courses(id, title))'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -62,6 +63,14 @@ export default async function LessonPage({
         </Link>
         <h1 className="mt-2 text-xl font-semibold">{lesson.title}</h1>
       </div>
+
+      {/* Told first, it changes how they watch. Told after, it does nothing. */}
+      {lesson.expectancy && !scormLaunch && (
+        <div className="rounded border-l-4 border-brand bg-gray-50 p-3">
+          <p className="text-sm font-medium text-gray-600">Before you watch</p>
+          <p className="mt-1">{lesson.expectancy}</p>
+        </div>
+      )}
 
       {scormLaunch ? (
         <ScormPlayer
@@ -114,6 +123,8 @@ export default async function LessonPage({
           alreadyPassed={Boolean(progress?.quiz_passed_at)}
         />
       )}
+
+      {!scormLaunch && <WrittenPrompts lessonId={lesson.id} unlocked={Boolean(progress?.watched_at)} />}
     </div>
   );
 }

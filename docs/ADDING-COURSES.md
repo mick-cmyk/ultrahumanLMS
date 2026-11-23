@@ -59,6 +59,38 @@ Tips:
 If an upload has a problem, nothing is saved and the app lists each problem
 with its row number in the spreadsheet.
 
+## Importing a lesson from the question maker
+
+The question maker (QuestionForge) writes one file per question set. One set
+is one video, so it goes on that video's lesson.
+
+1. In the question maker, open the set, click **Export**, then
+   **LMS lesson (JSON)**.
+2. Here, open the lesson and click **Import from question maker (JSON)**.
+3. Check what it shows: the idea the questions test, the sentence staff see
+   before the video, the questions with the right answers marked, the
+   "explain it in your own words" prompts, and anything the question maker
+   left out and why. Pick the pass mark and click **Save this lesson**.
+
+Importing replaces the lesson's questions, written prompts and before-video
+sentence. Importing the same set again later updates it in place: question and
+prompt ids come from the question maker, so open re-tests still line up and
+what staff already wrote is kept.
+
+What staff see:
+
+- **Before you watch:** one sentence above the video telling them what they'll
+  have to explain. It goes first on purpose. You can edit it on the lesson
+  under **Before the video**.
+- **The quiz**, as usual, with the explanation after every answer. Explanations
+  the question maker drafted with AI say so.
+- **Explain it in your own words:** not marked. They write an answer, send it,
+  and only then see the model answer. They can't change their answer after
+  that. Managers can read what their team wrote.
+
+The question maker's CSV download (**LMS questions (CSV)**) is the same as the
+template above, for when you only want the quiz.
+
 ## Changing a course that is already live
 
 - Edits show to staff straight away.

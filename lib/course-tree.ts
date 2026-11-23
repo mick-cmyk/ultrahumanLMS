@@ -2,10 +2,13 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CheckCourse } from './course-check';
 import type { QuizQuestion } from './quiz-csv';
+import type { WrittenPrompt } from './lesson-import';
 
 export type TreeLesson = CheckCourse['modules'][number]['lessons'][number] & {
   sort_order: number;
   script: string | null;
+  expectancy: string | null;
+  written_prompts: WrittenPrompt[];
 };
 export type TreeModule = Omit<CheckCourse['modules'][number], 'lessons'> & {
   sort_order: number;
@@ -25,14 +28,15 @@ export async function loadCourseTree(supabase: SupabaseClient, id: string): Prom
   const { data } = await supabase
     .from('courses')
     .select(
-      'id, title, description, published, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, script, quizzes(pass_mark, questions)))'
+      'id, title, description, published, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, script, expectancy, quizzes(pass_mark, questions), written_prompts(id, prompt, model_answer, max_words, sort_order)))'
     )
     .eq('id', id)
     .maybeSingle();
   if (!data) return null;
 
-  type RawLesson = Omit<TreeLesson, 'quiz'> & {
+  type RawLesson = Omit<TreeLesson, 'quiz' | 'written_prompts'> & {
     quizzes: { pass_mark: number; questions: QuizQuestion[] } | { pass_mark: number; questions: QuizQuestion[] }[] | null;
+    written_prompts: (WrittenPrompt & { sort_order: number })[] | null;
   };
   type RawModule = Omit<TreeModule, 'lessons'> & { lessons: RawLesson[] | null };
 
@@ -42,13 +46,17 @@ export async function loadCourseTree(supabase: SupabaseClient, id: string): Prom
       ...m,
       lessons: (m.lessons ?? [])
         .sort((a, b) => a.sort_order - b.sort_order)
-        .map(({ quizzes, ...l }) => {
+        .map(({ quizzes, written_prompts, ...l }) => {
           // quizzes is one-to-one (unique lesson_id), so PostgREST may return
           // an object or a one-item array depending on how it reads the FK.
           const quiz = Array.isArray(quizzes) ? (quizzes[0] ?? null) : quizzes;
           return {
             ...l,
             quiz: quiz ? { pass_mark: Number(quiz.pass_mark), questions: quiz.questions ?? [] } : null,
+            expectancy: l.expectancy ?? null,
+            written_prompts: (written_prompts ?? [])
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map(({ id, prompt, model_answer, max_words }) => ({ id, prompt, model_answer, max_words })),
           };
         }),
     }));
