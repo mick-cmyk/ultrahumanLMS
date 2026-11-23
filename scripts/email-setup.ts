@@ -64,7 +64,7 @@ async function main() {
 
   console.log(`Project ${ref}, brand ${brand.id}, ${live ? 'LIVE sending' : 'DRY RUN (nothing is emailed)'}`);
   run(`npx supabase secrets set ${args.join(' ')} --project-ref ${ref}`);
-  run(`npx supabase functions deploy retest-dispatch weekly-digest --no-verify-jwt --use-api --project-ref ${ref}`);
+  run(`npx supabase functions deploy retest-dispatch weekly-digest course-notify --no-verify-jwt --use-api --project-ref ${ref}`);
 
   const db = adminClient();
   const result = await must(

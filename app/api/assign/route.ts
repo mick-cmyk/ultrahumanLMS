@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     rule?: Record<string, unknown>;
     label?: string;
     due_days?: number | null;
+    email?: { mode?: string; send_at?: string | null };
   };
   try {
     payload = await request.json();
@@ -43,7 +44,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { course_id, rule: rawRule, label, due_days } = payload;
+  const { course_id, rule: rawRule, label, due_days, email } = payload;
+  // The "new course" email: 'now' (default), 'later' at send_at, or 'none'.
+  const mode = email?.mode === 'none' || email?.mode === 'later' ? email.mode : 'now';
+  let sendAfter = new Date().toISOString();
+  if (mode === 'later') {
+    const t = email?.send_at ? new Date(email.send_at) : null;
+    if (!t || Number.isNaN(t.getTime())) {
+      return NextResponse.json({ error: 'Pick the day and time to send the email.' }, { status: 400 });
+    }
+    sendAfter = t.toISOString();
+  }
   if (typeof course_id !== 'string' || typeof rawRule !== 'object' || !rawRule) {
     return NextResponse.json({ error: 'course_id and rule are required' }, { status: 400 });
   }
@@ -67,5 +78,23 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ id: data.id });
+
+  // Queue the emails (the database works out who, and skips anyone already
+  // told about this course). The assignment stands even if this fails.
+  let queued = 0;
+  if (mode !== 'none') {
+    const { data: n, error: qErr } = await supabase.rpc('queue_course_emails', {
+      p_assignment: data.id,
+      p_send_after: sendAfter,
+    });
+    if (qErr) {
+      return NextResponse.json({
+        id: data.id,
+        queued: 0,
+        warning: `Assignment saved, but the emails could not be queued: ${qErr.message}`,
+      });
+    }
+    queued = (n as number) ?? 0;
+  }
+  return NextResponse.json({ id: data.id, queued });
 }

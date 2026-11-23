@@ -2,12 +2,13 @@ import { requireRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { orderTree, type Unit } from '@/lib/units';
 import { AssignForm } from './assign-form';
+import { EmailSchedule, type ScheduleRow } from './email-schedule';
 
 export default async function AssignPage() {
   await requireRole(['admin']);
   const supabase = await createClient();
 
-  const [{ data: courses }, { data: units }, { data: users }] = await Promise.all([
+  const [{ data: courses }, { data: units }, { data: users }, { data: schedule }, { data: limit }] = await Promise.all([
     supabase.from('courses').select('id, title, published').order('title'),
     supabase.from('units').select('id, parent_id, kind, name, state, suburb, path, active'),
     supabase
@@ -15,6 +16,8 @@ export default async function AssignPage() {
       .select('id, full_name, email, unit_id')
       .eq('active', true)
       .order('full_name'),
+    supabase.rpc('course_email_schedule'),
+    supabase.rpc('email_hourly_limit'),
   ]);
 
   return (
@@ -31,6 +34,7 @@ export default async function AssignPage() {
         units={orderTree((units ?? []) as Unit[])}
         users={users ?? []}
       />
+      <EmailSchedule rows={(schedule ?? []) as ScheduleRow[]} hourlyLimit={(limit as number | null) ?? 100} />
     </div>
   );
 }

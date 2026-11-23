@@ -10,7 +10,7 @@
     "test:db:local": "tsx scripts/db-test.ts",
     "email:preview": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
     "email:send": "tsx --env-file=.env.local \"LMS Build Out/email-preview.ts\"",
-    "email:deploy": "supabase functions deploy retest-dispatch weekly-digest --no-verify-jwt --use-api",
+    "email:deploy": "supabase functions deploy retest-dispatch weekly-digest course-notify --no-verify-jwt --use-api",
     "seed:load": "tsx --env-file=.env.local seed/octolab.ts load",
     "seed:purge": "tsx --env-file=.env.local seed/octolab.ts purge",
     "admin:bootstrap": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",

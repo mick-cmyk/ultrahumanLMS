@@ -49,6 +49,14 @@ Sun and moon switch in the header on every page, logged in or out. With no choic
 - **Emails from the app** go through `lib/email.ts` (Resend API, same sender as the edge functions). Needs `RESEND_API_KEY` and `EMAIL_FROM` in Vercel; without a key it logs instead of sending.
 - **Verified** on dev against the live database as the demo admin: link and QR made, sign-up page logged out, request appeared on Approvals and was declined, approver tick saves. 50 database checks. **Not yet verified**: approving into a real login, the auto-approve path and the emails arriving (needs a real address; see To do).
 
+## "New course" emails (24 Nov 2026)
+
+- **Assign page**: when saving an assignment, choose "Straight away", "On a day and time" (the admin's own time zone) or "Don't send an email". The course shows in training as soon as it's saved either way.
+- **Queue** (`20261124000300_course_email_queue.sql`): `queue_course_emails` adds one row per active person the rule reaches (via `user_matches_rule`), never `.invalid` addresses, and never twice for the same person and course. The `course-notify` edge function runs every 10 minutes (cron `course-notify-10min`, scheduled on the demo with `schedule_course_notify_like_retest()`, which copies the re-test job's URL and secret), sends what's due up to the hourly limit (`app_settings.email_hourly_limit`, default 100, changeable on the Assign page), and records each result. At send time it skips anyone who has left, is no longer assigned, or whose course is unpublished. Failures retry after 10 minutes, up to three tries.
+- **Assign page list**: the last 30 days of course emails per assignment (waiting, sent, not sent), with Cancel for what hasn't gone.
+- **Not covered**: people who join or move into a unit after the assignment was saved don't get the email (they still see the course).
+- **Deploy**: `npm run email:deploy` now includes `course-notify`. On a new project, `schedule_edge_jobs` schedules all three.
+
 ## To do
 
 0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.

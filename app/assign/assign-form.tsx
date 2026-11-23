@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { STATES, levelLabel, type Unit } from '@/lib/units';
 
 type Course = { id: string; title: string; published: boolean };
@@ -29,6 +30,7 @@ export function AssignForm({
   units: TreeUnit[];
   users: User[];
 }) {
+  const router = useRouter();
   const [courseId, setCourseId] = useState('');
   const [everyone, setEveryone] = useState(false);
   const [unitIds, setUnitIds] = useState<Set<string>>(new Set());
@@ -43,6 +45,10 @@ export function AssignForm({
   const [reachLoading, setReachLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  // The "You have a new course" email: now, at a chosen time, or not at all.
+  const [emailMode, setEmailMode] = useState<'now' | 'later' | 'none'>('now');
+  const [sendAt, setSendAt] = useState('');
+  const [savedNote, setSavedNote] = useState('');
 
   const rule = useMemo(
     () => ({
@@ -109,8 +115,25 @@ export function AssignForm({
       setSaveStatus('error');
       return;
     }
+    let sendAtIso: string | null = null;
+    if (emailMode === 'later') {
+      // datetime-local is in the admin's own time zone; the browser converts it.
+      const t = sendAt ? new Date(sendAt) : null;
+      if (!t || Number.isNaN(t.getTime())) {
+        setErrorMsg('Pick the day and time to send the email.');
+        setSaveStatus('error');
+        return;
+      }
+      if (t.getTime() < Date.now() - 60_000) {
+        setErrorMsg('That send time has already passed. Pick a later one, or choose "Straight away".');
+        setSaveStatus('error');
+        return;
+      }
+      sendAtIso = t.toISOString();
+    }
     setSaveStatus('saving');
     setErrorMsg('');
+    setSavedNote('');
     try {
       const res = await fetch('/api/assign', {
         method: 'POST',
@@ -120,6 +143,7 @@ export function AssignForm({
           rule,
           label,
           due_days: dueDays ? Number(dueDays) : null,
+          email: { mode: emailMode, send_at: sendAtIso },
         }),
       });
       const body = await res.json();
@@ -128,7 +152,24 @@ export function AssignForm({
         setSaveStatus('error');
         return;
       }
+      if (body.warning) {
+        setSavedNote(body.warning);
+        setSaveStatus('saved');
+        return;
+      }
+      const n = typeof body.queued === 'number' ? body.queued : 0;
+      const who = `${n} ${n === 1 ? 'person' : 'people'}`;
+      setSavedNote(
+        emailMode === 'none'
+          ? 'No email will be sent.'
+          : n === 0
+            ? 'Nobody needed an email: they were already told about this course, or have no email address we can send to.'
+            : emailMode === 'now'
+              ? `The "new course" email is on its way to ${who}. Big lists go out in batches over the next hour or so.`
+              : `The "new course" email will go to ${who} on ${new Date(sendAtIso!).toLocaleString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}.`
+      );
       setSaveStatus('saved');
+      router.refresh();
     } catch {
       setErrorMsg('Could not save the assignment.');
       setSaveStatus('error');
@@ -302,6 +343,35 @@ export function AssignForm({
         </label>
       </div>
 
+      <fieldset className="space-y-2">
+        <legend className="mb-1 text-sm font-medium">Email staff about it</legend>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="email-mode" checked={emailMode === 'now'} onChange={() => setEmailMode('now')} />
+          Straight away
+        </label>
+        <label className="flex flex-wrap items-center gap-2">
+          <input type="radio" name="email-mode" checked={emailMode === 'later'} onChange={() => setEmailMode('later')} />
+          On a day and time
+          {emailMode === 'later' && (
+            <input
+              type="datetime-local"
+              value={sendAt}
+              onChange={(e) => setSendAt(e.target.value)}
+              aria-label="Day and time to send the email"
+              className="rounded border border-gray-300 bg-surface px-3 py-2"
+            />
+          )}
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="email-mode" checked={emailMode === 'none'} onChange={() => setEmailMode('none')} />
+          Don&apos;t send an email
+        </label>
+        <p className="text-sm text-gray-600">
+          The course shows in their training as soon as you save. The email says &quot;You have a new course to
+          complete&quot; with a button to start it. Nobody gets it twice for the same course.
+        </p>
+      </fieldset>
+
       <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 pt-4">
         <p className="text-lg">
           {reachLoading ? (
@@ -329,8 +399,7 @@ export function AssignForm({
 
       {saveStatus === 'saved' && (
         <p className="rounded bg-green-50 p-3 text-sm text-green-800">
-          Assignment saved. It takes effect immediately. Matching staff will see
-          the course next time they open their training.
+          Assignment saved. Matching staff will see the course next time they open their training. {savedNote}
         </p>
       )}
       {saveStatus === 'error' && (
