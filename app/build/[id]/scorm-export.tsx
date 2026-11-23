@@ -93,7 +93,9 @@ export function ScormExport({ courseId }: { courseId: string }) {
         video,
         watchThreshold: l.watchThreshold,
         script: l.script,
+        expectancy: l.expectancy,
         quiz: l.quiz,
+        written: l.written,
       });
     }
 
@@ -126,9 +128,10 @@ export function ScormExport({ courseId }: { courseId: string }) {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
     const quizzes = lessons.filter((l) => l.quiz).length;
+    const written = lessons.reduce((n, l) => n + (l.written?.length ?? 0), 0);
     setState({
       kind: 'done',
-      text: `Downloaded ${fileName} (${mb(zip.byteLength)}): ${lessons.length} ${lessons.length === 1 ? 'lesson' : 'lessons'}, ${quizzes} with a quiz.`,
+      text: `Downloaded ${fileName} (${mb(zip.byteLength)}): ${lessons.length} ${lessons.length === 1 ? 'lesson' : 'lessons'}, ${quizzes} with a quiz, ${written} written ${written === 1 ? 'question' : 'questions'}.`,
       skipped: plan.skipped,
     });
   }
@@ -137,8 +140,9 @@ export function ScormExport({ courseId }: { courseId: string }) {
     <section className="space-y-3 rounded border border-gray-200 p-4">
       <h2 className="font-semibold">Download as SCORM</h2>
       <p className="text-sm text-gray-600">
-        A SCORM 1.2 file that another LMS can import. The videos, quizzes and scripts are all inside it, and it
-        keeps the same watching and pass mark rules. It can&apos;t send the week-later re-test, and anyone who
+        A SCORM 1.2 file that another LMS can import. The videos, quizzes, written questions, &quot;before you
+        watch&quot; notes and scripts are all inside it, and it keeps the same watching and pass mark rules.
+        Written answers aren&apos;t saved in the other LMS. It can&apos;t send the week-later re-test, and anyone who
         opens the file can see the quiz answers.
       </p>
       <button

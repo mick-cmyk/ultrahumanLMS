@@ -21,6 +21,13 @@ export type ExportQuestion = {
   explanation: string;
 };
 
+export type ExportWritten = {
+  id: string;
+  prompt: string;
+  model_answer: string | null;
+  max_words: number | null;
+};
+
 export type ExportLesson = {
   id: string;
   title: string;
@@ -29,7 +36,11 @@ export type ExportLesson = {
   video: Uint8Array;
   watchThreshold: number; // 0..1
   script?: string | null;
+  /** "Before you watch": what to look out for. */
+  expectancy?: string | null;
   quiz?: { passMark: number; questions: ExportQuestion[] } | null;
+  /** "Explain it in your own words": not marked, shows the model answer after. */
+  written?: ExportWritten[];
 };
 
 export type ExportCourse = {
@@ -105,7 +116,9 @@ export function courseData(course: ExportCourse) {
       video: l.videoPath,
       threshold: l.watchThreshold,
       script: l.script ?? '',
+      expectancy: l.expectancy ?? '',
       quiz: l.quiz && l.quiz.questions.length ? l.quiz : null,
+      written: (l.written ?? []).filter((w) => w.prompt.trim()),
     })),
   };
 }

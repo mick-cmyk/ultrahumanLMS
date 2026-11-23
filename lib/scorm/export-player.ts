@@ -50,6 +50,13 @@ label.opt{display:flex;gap:10px;align-items:center;min-height:44px;padding:4px 6
 label.opt input{width:20px;height:20px;flex:none}
 .right{background:#f0fdf4}.wrong{background:#fef2f2}
 .explain{font-size:14px;margin:6px 0 0;color:#374151}
+.before{border-left:4px solid var(--accent);background:#f9fafb;padding:10px 12px;border-radius:4px;margin:12px 0}
+.before p{margin:4px 0 0}
+.locked{border:1px dashed #d1d5db;border-radius:6px;padding:12px;margin:12px 0;color:#4b5563}
+.locked strong{color:#14161a}
+section.written{border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;margin:16px 0}
+textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;margin:6px 0}
+.answer{background:#f0fdf4;border-radius:6px;padding:10px 12px;margin:8px 0;white-space:pre-line}
 button.primary{min-height:44px;padding:10px 18px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-text);font:inherit;font-weight:600;cursor:pointer}
 button.primary:disabled{opacity:.5;cursor:default}
 .result{padding:12px;border-radius:6px;margin:12px 0;font-weight:600}
@@ -187,9 +194,16 @@ export const PLAYER_JS = `(function () {
 
   function renderLesson(l) {
     lessonBox.appendChild(el('h2', { id: 'lesson-title', tabindex: '-1', text: l.title }));
+    if (l.expectancy) {
+      lessonBox.appendChild(el('div', { class: 'before' }, [
+        el('strong', { text: 'Before you watch' }),
+        el('p', { text: l.expectancy })
+      ]));
+    }
     var video = el('video', { src: l.video, controls: '', playsinline: '', preload: 'metadata' });
     var status = el('p', { class: 'muted', 'aria-live': 'polite' });
     var quizBox = el('div');
+    var writtenBox = el('div');
     lessonBox.appendChild(video);
     lessonBox.appendChild(status);
 
@@ -216,6 +230,7 @@ export const PLAYER_JS = `(function () {
           save();
           renderHeader();
           if (l.quiz) renderQuiz(l, quizBox);
+          renderWritten(l, writtenBox);
         }
       }
     });
@@ -227,7 +242,66 @@ export const PLAYER_JS = `(function () {
       lessonBox.appendChild(d);
     }
     lessonBox.appendChild(quizBox);
-    if (l.quiz && isWatched(l)) renderQuiz(l, quizBox);
+    lessonBox.appendChild(writtenBox);
+    if (l.quiz) {
+      if (isWatched(l)) renderQuiz(l, quizBox);
+      else quizBox.appendChild(el('div', { class: 'locked' }, [
+        el('strong', { text: 'Quick quiz' }),
+        el('p', { text: l.quiz.questions.length + (l.quiz.questions.length === 1 ? ' question' : ' questions') +
+          '. Watch the video to unlock it.' })
+      ]));
+    }
+    renderWritten(l, writtenBox);
+  }
+
+  // Not marked and not saved: SCORM 1.2 only keeps 4,096 characters of progress.
+  var writtenAnswers = {}; // promptId -> text, this session only
+  function words(s) { return s.trim() ? s.trim().split(/\\s+/).length : 0; }
+  function renderWritten(l, box) {
+    box.innerHTML = '';
+    if (!l.written || !l.written.length) return;
+    var sec = el('section', { class: 'written', 'aria-label': 'Explain it in your own words' });
+    sec.appendChild(el('h2', { text: 'Explain it in your own words' }));
+    if (!isWatched(l)) {
+      sec.appendChild(el('p', { class: 'muted', text: 'Watch the video to unlock ' + (l.written.length === 1 ? 'this question.' : 'these questions.') }));
+      box.appendChild(sec);
+      return;
+    }
+    sec.appendChild(el('p', { class: 'muted', text: 'Not marked. Write it the way you\u2019d say it to someone at work. Once you send it you\u2019ll see how we\u2019d put it.' }));
+    l.written.forEach(function (w) {
+      var wrap = el('div');
+      function show() {
+        wrap.innerHTML = '';
+        wrap.appendChild(el('p', { text: w.prompt, style: 'font-weight:600' }));
+        if (writtenAnswers[w.id] != null) {
+          wrap.appendChild(el('p', { class: 'muted', text: 'You wrote:' }));
+          wrap.appendChild(el('p', { text: writtenAnswers[w.id], style: 'white-space:pre-line' }));
+          if (w.model_answer) wrap.appendChild(el('div', { class: 'answer' }, [el('strong', { text: 'How we\u2019d put it: ' }), document.createTextNode(w.model_answer)]));
+          return;
+        }
+        var id = 'w-' + w.id;
+        var ta = el('textarea', { id: id, rows: '3', maxlength: '4000' });
+        var count = el('span', { class: 'muted', 'aria-live': 'polite' });
+        var send = el('button', { type: 'button', class: 'primary', text: 'Send my answer' });
+        send.disabled = true;
+        function update() {
+          var n = words(ta.value), over = w.max_words != null && n > w.max_words;
+          if (w.max_words != null) count.textContent = ' ' + n + ' of ' + w.max_words + ' words';
+          count.style.color = over ? '#991b1b' : '';
+          send.disabled = !ta.value.trim() || over;
+        }
+        ta.addEventListener('input', update);
+        send.addEventListener('click', function () { writtenAnswers[w.id] = ta.value.trim(); show(); });
+        wrap.firstChild.setAttribute('id', id + '-label');
+        ta.setAttribute('aria-labelledby', id + '-label');
+        wrap.appendChild(ta);
+        wrap.appendChild(el('div', null, [send, count]));
+        update();
+      }
+      show();
+      sec.appendChild(wrap);
+    });
+    box.appendChild(sec);
   }
 
   function renderQuiz(l, box) {

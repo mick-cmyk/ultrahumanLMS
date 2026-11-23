@@ -7,7 +7,7 @@
 // own session and passes it in.
 
 import type { CourseTree } from '../course-tree';
-import type { ExportQuestion } from './export';
+import type { ExportQuestion, ExportWritten } from './export';
 
 export type PlanLesson = {
   id: string;
@@ -16,7 +16,9 @@ export type PlanLesson = {
   sources: string[];
   watchThreshold: number;
   script: string | null;
+  expectancy: string | null;
   quiz: { passMark: number; questions: ExportQuestion[] } | null;
+  written: ExportWritten[];
 };
 
 export type ExportPlan = {
@@ -69,6 +71,13 @@ export function buildExportPlan(
         sources,
         watchThreshold: threshold,
         script: l.script ?? null,
+        expectancy: l.expectancy?.trim() || null,
+        written: (l.written_prompts ?? []).map((w) => ({
+          id: w.id,
+          prompt: w.prompt,
+          model_answer: w.model_answer ?? null,
+          max_words: w.max_words ?? null,
+        })),
         quiz: questions.length
           ? {
               passMark: l.quiz!.pass_mark,

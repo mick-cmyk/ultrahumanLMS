@@ -18,7 +18,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getBrand, getBrandTokens } from '../brands';
-import { buildPackageZip, slug, type ExportCourse, type ExportLesson } from '../lib/scorm/export';
+import { buildPackageZip, slug, type ExportCourse, type ExportLesson, type ExportWritten } from '../lib/scorm/export';
 import { adminClient, die, must } from './db';
 import { bunnyCdnHost } from '../lib/bunny';
 
@@ -104,7 +104,7 @@ async function fromDatabase(courseId: string, accent: Accent): Promise<ExportCou
     ? ((await must(
         db
           .from('lessons')
-          .select('id, module_id, title, sort_order, kind, bunny_video_id, sample_video_url, watch_threshold, script')
+          .select('id, module_id, title, sort_order, kind, bunny_video_id, sample_video_url, watch_threshold, script, expectancy, written_prompts(id, prompt, model_answer, max_words, sort_order)')
           .in('module_id', moduleIds),
         'Reading lessons'
       )) as Row[])
@@ -139,6 +139,10 @@ async function fromDatabase(courseId: string, accent: Accent): Promise<ExportCou
       video: await loadVideo(l as { title: string }),
       watchThreshold: Number(l.watch_threshold) || 0.9,
       script: (l.script as string | null) ?? null,
+      expectancy: (l.expectancy as string | null) ?? null,
+      written: ((l.written_prompts as (ExportWritten & { sort_order: number })[] | null) ?? [])
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(({ id, prompt, model_answer, max_words }) => ({ id, prompt, model_answer, max_words })),
       quiz: qz ? { passMark: Number(qz.pass_mark), questions: qz.questions as ExportLesson['quiz'] extends infer Q ? Q extends { questions: infer X } ? X : never : never } : null,
     });
   }

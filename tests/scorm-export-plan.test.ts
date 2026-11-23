@@ -58,6 +58,21 @@ describe('SCORM export plan', () => {
     });
   });
 
+  it('carries the before-you-watch note and written questions', () => {
+    const plan = buildExportPlan(
+      tree([
+        lesson({
+          sample_video_url: '/v.mp4',
+          expectancy: '  Look for the need.  ',
+          written_prompts: [{ id: 'w', prompt: 'Explain it', model_answer: 'Like this', max_words: 50 }],
+        } as Partial<L>),
+      ]),
+      opts
+    );
+    expect(plan.lessons[0].expectancy).toBe('Look for the need.');
+    expect(plan.lessons[0].written).toEqual([{ id: 'w', prompt: 'Explain it', model_answer: 'Like this', max_words: 50 }]);
+  });
+
   it('leaves out lessons it cannot package, and says why', () => {
     const plan = buildExportPlan(
       tree([
