@@ -8,6 +8,9 @@ import { checkCourse, hasErrors } from '@/lib/course-check';
 import { ANSWER_LETTERS } from '@/lib/quiz-csv';
 import { formatDuration } from '../../api';
 import { PublishButton } from './publish-button';
+import { DraftActions, ReviewControl } from './review-controls';
+import type { QuizQuestion } from '@/lib/quiz-csv';
+import type { WrittenPrompt } from '@/lib/lesson-import';
 
 export const metadata = { title: 'Check course' };
 
@@ -24,6 +27,9 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
   const issues = checkCourse(tree, { bunnyReady: bunnyConfigured() });
   const errors = issues.filter((i) => i.level === 'error');
   const warnings = issues.filter((i) => i.level === 'warning');
+  const allLessons = tree.modules.flatMap((m) => m.lessons);
+  const toReview = allLessons.filter((l) => l.needs_review).length;
+  const waiting = allLessons.filter((l) => l.draft).length;
   const { count: assignments } = await supabase
     .from('assignments')
     .select('id', { count: 'exact', head: true })
@@ -46,6 +52,26 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
               ? 'Ready to publish, with a few things to look at'
               : 'Ready to publish'}
         </h2>
+        {(toReview > 0 || waiting > 0) && (
+          <p className="text-sm">
+            {toReview > 0 && (
+              <>
+                <span className="font-medium">
+                  {toReview} lesson{toReview === 1 ? '' : 's'} to review.
+                </span>{' '}
+                Read each one below and tick it off.{' '}
+              </>
+            )}
+            {waiting > 0 && (
+              <>
+                <span className="font-medium">
+                  {waiting} change{waiting === 1 ? '' : 's'} waiting.
+                </span>{' '}
+                Staff keep the current questions until each change is reviewed and swapped in.
+              </>
+            )}
+          </p>
+        )}
         {issues.length > 0 && (
           <ul className="space-y-1 text-sm">
             {[...errors, ...warnings].map((i, k) => (
@@ -104,7 +130,11 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
             {m.lessons.map((l, li) => {
               const embed = signedEmbedUrl(l.bunny_video_id);
               return (
-                <article key={l.id} className="space-y-3 rounded border border-gray-200 p-4">
+                <article
+                  key={l.id}
+                  id={`lesson-${l.id}`}
+                  className={`space-y-3 rounded border p-4 ${l.needs_review || l.draft ? 'border-amber-400' : 'border-gray-200'}`}
+                >
                   <h4 className="font-medium">
                     Lesson {li + 1}: {l.title}
                     {l.duration_seconds ? (
@@ -136,6 +166,11 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
                       {l.bunny_video_id ? "Video set, but Bunny isn't connected on this site, so it can't play here." : 'No video yet.'}
                     </p>
                   )}
+                  {l.expectancy && l.kind !== 'scorm' && (
+                    <p className="rounded border-l-4 border-brand bg-gray-50 p-3 text-sm">
+                      <span className="font-medium">Before you watch:</span> {l.expectancy}
+                    </p>
+                  )}
                   {l.script && (
                     <div className="space-y-1 text-sm text-gray-700">
                       {l.script.split('\n').filter((x) => x.trim()).map((x, k) => (
@@ -145,38 +180,91 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
                   )}
                   {l.kind !== 'scorm' &&
                     (l.quiz?.questions.length ? (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">
-                          Quick check: {l.quiz.questions.length} question{l.quiz.questions.length === 1 ? '' : 's'}, pass mark{' '}
-                          {Math.round(l.quiz.pass_mark * 100)}%
-                        </p>
-                        <ol className="space-y-2 text-sm">
-                          {l.quiz.questions.map((q, qi) => (
-                            <li key={q.id}>
-                              <p className="font-medium">
-                                {qi + 1}. {q.text}
-                              </p>
-                              <ul>
-                                {q.options.map((o, j) => (
-                                  <li key={j} className={j === q.correct_index ? 'font-medium text-green-800' : 'text-gray-700'}>
-                                    {ANSWER_LETTERS[j]}. {o} {j === q.correct_index && '(correct)'}
-                                  </li>
-                                ))}
-                              </ul>
-                              {q.explanation && <p className="text-gray-600">Why: {q.explanation}</p>}
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
+                      <QuestionList passMark={l.quiz.pass_mark} questions={l.quiz.questions} />
                     ) : (
                       <p className="text-sm text-gray-600">No questions. Watch only.</p>
                     ))}
+                  {l.kind !== 'scorm' && <PromptList prompts={l.written_prompts} />}
+                  {l.kind !== 'scorm' && (
+                    <ReviewControl lessonId={l.id} reviewedAt={l.reviewed_at} needsReview={l.needs_review} />
+                  )}
+                  {l.draft && (
+                    <div className="space-y-3 rounded border border-amber-400 bg-amber-50 p-3">
+                      <div>
+                        <p className="font-medium text-amber-900">Change waiting for review</p>
+                        <p className="text-sm text-amber-900">
+                          {l.draft.note ? `${l.draft.note}. ` : ''}Saved{' '}
+                          {new Date(l.draft.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}. Staff see
+                          the version above until this is swapped in.
+                        </p>
+                      </div>
+                      {l.draft.expectancy && (
+                        <p className="text-sm">
+                          <span className="font-medium">Before you watch:</span> {l.draft.expectancy}
+                        </p>
+                      )}
+                      {l.draft.questions.length ? (
+                        <QuestionList passMark={l.draft.pass_mark} questions={l.draft.questions} />
+                      ) : (
+                        <p className="text-sm">No questions in this version. Swapping it in makes the lesson watch only.</p>
+                      )}
+                      <PromptList prompts={l.draft.written_prompts} />
+                      <DraftActions lessonId={l.id} />
+                    </div>
+                  )}
                 </article>
               );
             })}
           </div>
         ))}
       </section>
+    </div>
+  );
+}
+
+function QuestionList({ passMark, questions }: { passMark: number; questions: QuizQuestion[] }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">
+        Quick check: {questions.length} question{questions.length === 1 ? '' : 's'}, pass mark {Math.round(passMark * 100)}%
+      </p>
+      <ol className="space-y-2 text-sm">
+        {questions.map((q, qi) => (
+          <li key={q.id}>
+            <p className="font-medium">
+              {qi + 1}. {q.text}
+            </p>
+            <ul>
+              {q.options.map((o, j) => (
+                <li key={j} className={j === q.correct_index ? 'font-medium text-green-800' : 'text-gray-700'}>
+                  {ANSWER_LETTERS[j]}. {o} {j === q.correct_index && '(correct)'}
+                </li>
+              ))}
+            </ul>
+            {q.explanation && <p className="text-gray-600">Why: {q.explanation}</p>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function PromptList({ prompts }: { prompts: WrittenPrompt[] }) {
+  if (!prompts.length) return null;
+  return (
+    <div className="space-y-2 text-sm">
+      <p className="font-medium">Explain it in your own words (not marked)</p>
+      <ol className="space-y-2">
+        {prompts.map((p, i) => (
+          <li key={p.id}>
+            <p className="font-medium">
+              {i + 1}. {p.prompt}
+              {p.max_words ? <span className="font-normal text-gray-600"> (up to {p.max_words} words)</span> : null}
+            </p>
+            {p.model_answer && <p className="text-gray-600">Model answer: {p.model_answer}</p>}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

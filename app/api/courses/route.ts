@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { bunnyConfigured, fetchBunnyVideo, parseBunnyVideo } from '@/lib/bunny';
 import { questionsProblem } from '@/lib/quiz-csv';
 import { writtenPromptsProblem, type WrittenPrompt } from '@/lib/lesson-import';
+import type { QuizQuestion } from '@/lib/quiz-csv';
 import { checkCourse, hasErrors } from '@/lib/course-check';
 import { loadCourseTree } from '@/lib/course-tree';
 
@@ -135,7 +136,16 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       let note: string | null = null;
       if ('title' in b) patch.title = str(b.title, 200) || fail('The lesson needs a title.');
       if ('script' in b) patch.script = str(b.script, 20000) || null;
-      if ('expectancy' in b) patch.expectancy = str(b.expectancy, 1000) || null;
+      if ('expectancy' in b) {
+        const expectancy = str(b.expectancy, 1000) || null;
+        const where = await lessonPlace(supabase, id!);
+        if (where.published) {
+          await stage(supabase, id!, { expectancy });
+          note = STAGED;
+        } else {
+          patch.expectancy = expectancy;
+        }
+      }
       if ('duration_seconds' in b) {
         const d = b.duration_seconds;
         if (d === null || d === '') patch.duration_seconds = null;
@@ -165,7 +175,9 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
           }
         }
       }
-      check(await supabase.from('lessons').update(patch).eq('id', id!).eq('kind', 'video'));
+      if (Object.keys(patch).length) {
+        check(await supabase.from('lessons').update(patch).eq('id', id!).eq('kind', 'video'));
+      }
       return { ok: true, note, duration_seconds: patch.duration_seconds ?? undefined };
     }
     case 'lesson.delete': {
@@ -185,6 +197,10 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       if (problem) fail(problem);
       const pass = Number(b.pass_mark ?? 0.8);
       if (!PASS_MARKS.includes(pass)) fail('Pick a pass mark from the list.');
+      if ((await lessonPlace(supabase, lessonId)).published) {
+        await stage(supabase, lessonId, { questions: questions as QuizQuestion[], pass_mark: pass });
+        return { ok: true, note: STAGED };
+      }
       if ((questions as unknown[]).length === 0) {
         check(await supabase.from('quizzes').delete().eq('lesson_id', lessonId));
       } else {
@@ -200,6 +216,12 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
     // ----------------------------------------------- written prompts, import
     case 'written.set': {
       const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      if ((await lessonPlace(supabase, lessonId)).published) {
+        const problem = writtenPromptsProblem(b.written_prompts);
+        if (problem) fail(problem);
+        await stage(supabase, lessonId, { written_prompts: b.written_prompts as WrittenPrompt[] });
+        return { ok: true, note: STAGED };
+      }
       await setWrittenPrompts(supabase, lessonId, b.written_prompts);
       return { ok: true };
     }
@@ -215,10 +237,22 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       if (promptProblem) fail(promptProblem);
       const pass = Number(b.pass_mark ?? 0.8);
       if (!PASS_MARKS.includes(pass)) fail('Pick a pass mark from the list.');
-      const lesson = check(
-        await supabase.from('lessons').select('id').eq('id', lessonId).eq('kind', 'video').maybeSingle()
-      );
-      if (!lesson) fail('That lesson is a SCORM package or no longer exists.');
+      const where = await lessonPlace(supabase, lessonId);
+      if (where.kind !== 'video') fail('That lesson is a SCORM package.');
+      if (where.published) {
+        await stage(
+          supabase,
+          lessonId,
+          {
+            questions: questions as QuizQuestion[],
+            pass_mark: pass,
+            written_prompts: (b.written_prompts ?? []) as WrittenPrompt[],
+            expectancy: str(b.expectancy, 1000) || null,
+          },
+          str(b.note, 500)
+        );
+        return { ok: true, note: STAGED };
+      }
       if ((questions as unknown[]).length === 0) {
         check(await supabase.from('quizzes').delete().eq('lesson_id', lessonId));
       } else {
@@ -232,6 +266,23 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
         await supabase.from('lessons').update({ expectancy: str(b.expectancy, 1000) || null }).eq('id', lessonId)
       );
       await setWrittenPrompts(supabase, lessonId, b.written_prompts ?? []);
+      return { ok: true };
+    }
+
+    // ------------------------------------------------------------- review
+    case 'lesson.review': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      check(await supabase.rpc('mark_lesson_reviewed', { p_lesson_id: lessonId, p_reviewed: b.reviewed !== false }));
+      return { ok: true };
+    }
+    case 'draft.apply': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      check(await supabase.rpc('apply_lesson_draft', { p_lesson_id: lessonId }));
+      return { ok: true };
+    }
+    case 'draft.discard': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      check(await supabase.from('lesson_drafts').delete().eq('lesson_id', lessonId));
       return { ok: true };
     }
 
@@ -279,6 +330,75 @@ async function move(supabase: SupabaseClient, table: string, parentCol: string, 
   for (const [k, sid] of ids.entries()) {
     check(await supabase.from(table).update({ sort_order: k + 1 }).eq('id', sid));
   }
+}
+
+const STAGED =
+  'Saved as a change waiting for review. Staff keep the current version until someone approves it on the Check page.';
+
+// Where a lesson sits: is it a video lesson, and is its course live?
+async function lessonPlace(supabase: SupabaseClient, lessonId: string) {
+  const row = check(
+    await supabase.from('lessons').select('kind, modules(courses(published))').eq('id', lessonId).maybeSingle()
+  ) as { kind: string; modules: unknown } | null;
+  if (!row) fail('That lesson no longer exists.');
+  const one = <T,>(rel: T | T[] | null | undefined): T | null => (Array.isArray(rel) ? (rel[0] ?? null) : (rel ?? null));
+  const mod = one(row.modules as { courses: { published: boolean } | { published: boolean }[] | null } | null);
+  return { kind: row.kind, published: Boolean(one(mod?.courses)?.published) };
+}
+
+// On a live course, changes to what staff answer wait in lesson_drafts until
+// an admin reviews them. A new change builds on any change already waiting,
+// or on the live version.
+async function stage(
+  supabase: SupabaseClient,
+  lessonId: string,
+  patch: { questions?: QuizQuestion[]; pass_mark?: number; written_prompts?: WrittenPrompt[]; expectancy?: string | null },
+  note: string | null = null
+) {
+  let base = check(
+    await supabase
+      .from('lesson_drafts')
+      .select('pass_mark, questions, written_prompts, expectancy, note')
+      .eq('lesson_id', lessonId)
+      .maybeSingle()
+  ) as { pass_mark: number; questions: QuizQuestion[]; written_prompts: WrittenPrompt[]; expectancy: string | null; note: string | null } | null;
+  if (!base) {
+    const [quiz, prompts, lesson] = await Promise.all([
+      supabase.from('quizzes').select('pass_mark, questions').eq('lesson_id', lessonId).maybeSingle(),
+      supabase.from('written_prompts').select('id, prompt, model_answer, max_words').eq('lesson_id', lessonId).order('sort_order'),
+      supabase.from('lessons').select('expectancy').eq('id', lessonId).maybeSingle(),
+    ]);
+    base = {
+      pass_mark: Number((check(quiz) as { pass_mark: number } | null)?.pass_mark ?? 0.8),
+      questions: ((check(quiz) as { questions: QuizQuestion[] } | null)?.questions ?? []) as QuizQuestion[],
+      written_prompts: (check(prompts) ?? []) as WrittenPrompt[],
+      expectancy: (check(lesson) as { expectancy: string | null } | null)?.expectancy ?? null,
+      note: null,
+    };
+  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  check(
+    await supabase.from('lesson_drafts').upsert(
+      {
+        lesson_id: lessonId,
+        pass_mark: patch.pass_mark ?? Number(base.pass_mark),
+        questions: patch.questions ?? base.questions,
+        written_prompts: (patch.written_prompts ?? base.written_prompts).map((p) => ({
+          id: p.id,
+          prompt: p.prompt,
+          model_answer: p.model_answer ?? null,
+          max_words: p.max_words ?? null,
+        })),
+        expectancy: 'expectancy' in patch ? (patch.expectancy ?? null) : base.expectancy,
+        note: note ?? base.note,
+        created_by: user?.id ?? null,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'lesson_id' }
+    )
+  );
 }
 
 // Upsert by id and drop the rest. Ids come from the question maker and stay

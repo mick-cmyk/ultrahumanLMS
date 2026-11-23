@@ -31,11 +31,17 @@ no developer.
    in in Excel or Google Sheets, then **File, Save as, CSV** and click
    **Upload questions (CSV)**. Check the questions it shows you, pick the pass
    mark (80% unless you have a reason) and click **Save these questions**.
-6. **Check it.** Click **Check and publish**. The page lists anything that is
-   missing, then shows the whole course as staff will see it with the right
-   answers marked. Read it through.
+6. **Check and review it.** Click **Check and publish**. The page lists anything
+   that is missing, then shows the whole course as staff will see it with the
+   right answers marked. Read every lesson's questions and click **I've
+   reviewed this lesson** under each one. Publishing waits until every lesson
+   with questions has been reviewed.
 7. **Publish**, then **assign** it on the Assign page. Nobody sees a course
    until it is both published and assigned.
+
+Uploading or importing questions, adding written prompts or changing the
+before-video sentence marks that lesson as not reviewed again, so a change
+can't slip through unread.
 
 ## The question template
 
@@ -92,7 +98,13 @@ template above, for when you only want the quiz.
 
 ## Changing a course that is already live
 
-- Edits show to staff straight away.
+- Titles, videos and notes change straight away.
+- **Questions don't.** Uploading or importing questions on a published course,
+  changing written prompts or the before-video sentence saves the change as
+  *waiting for review*. Staff keep the current version. On the Check page the
+  change shows under the lesson: read it, then **I've reviewed it. Swap it in**,
+  or **Discard the change**. A second upload before then replaces the waiting
+  change.
 - You can't delete a lesson or module once staff have started it, because that
   would wipe their progress. Rename it or change its video and questions instead.
 - **Unpublish** hides the course from everyone until you publish it again.

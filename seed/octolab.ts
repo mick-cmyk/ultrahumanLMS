@@ -384,6 +384,11 @@ async function createCourse(def: CourseDef): Promise<Built> {
         db.from('quizzes').insert({ lesson_id: lesson.id, pass_mark: 0.8, questions: l.quiz }),
         `Creating quiz for ${l.title}`
       );
+      // Demo content counts as reviewed, so the check page doesn't flag it.
+      await must(
+        db.from('lessons').update({ reviewed_at: new Date().toISOString() }).eq('id', lesson.id),
+        `Marking ${l.title} reviewed`
+      );
     }
     lessons.push({ id: lesson.id, hasQuiz: Boolean(l.quiz) });
   }

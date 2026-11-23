@@ -12,6 +12,11 @@ export type CheckLesson = {
   sample_video_url: string | null;
   duration_seconds: number | null;
   quiz: { pass_mark: number; questions: QuizQuestion[] } | null;
+  // Set by the course tree. True when the lesson has questions, written
+  // prompts or a before-video sentence nobody has ticked as reviewed.
+  needs_review?: boolean;
+  // A change to a live lesson's questions, waiting for review.
+  has_draft?: boolean;
 };
 
 export type CheckModule = {
@@ -71,6 +76,13 @@ export function checkCourse(course: CheckCourse, opts: { bunnyReady: boolean }):
       }
       if (!l.duration_seconds) {
         warn(where, 'No video length, so the course page can\'t show how long it takes.', l.id);
+      }
+
+      if (l.needs_review) {
+        err(where, "Questions not reviewed yet. Read them below and tick \u201cI've reviewed this lesson\u201d.", l.id);
+      }
+      if (l.has_draft) {
+        warn(where, 'A change to the questions is waiting for review. Staff still see the current version.', l.id);
       }
 
       const qs = l.quiz?.questions ?? [];

@@ -23,6 +23,8 @@ type Lesson = {
   quiz: { pass_mark: number; questions: QuizQuestion[] } | null;
   expectancy: string | null;
   written_prompts: WrittenPrompt[];
+  needs_review: boolean;
+  draft: { note: string | null; created_at: string } | null;
 };
 type Module = { id: string; title: string; intro: string | null; lessons: Lesson[] };
 type Course = { id: string; title: string; description: string | null; published: boolean; modules: Module[] };
@@ -75,6 +77,7 @@ export function CourseEditor({ course, lookupAvailable }: { course: Course; look
           last={i === course.modules.length - 1}
           number={i + 1}
           lookupAvailable={lookupAvailable}
+          courseId={course.id}
         />
       ))}
       <AddModule courseId={course.id} first={course.modules.length === 0} />
@@ -178,12 +181,14 @@ function ModuleCard({
   last,
   number,
   lookupAvailable,
+  courseId,
 }: {
   module: Module;
   first: boolean;
   last: boolean;
   number: number;
   lookupAvailable: boolean;
+  courseId: string;
 }) {
   const [title, setTitle] = useState(module.title);
   const [intro, setIntro] = useState(module.intro ?? '');
@@ -243,6 +248,7 @@ function ModuleCard({
             first={i === 0}
             last={i === module.lessons.length - 1}
             lookupAvailable={lookupAvailable}
+            courseId={courseId}
           />
         ))}
       </div>
@@ -278,8 +284,10 @@ function LessonCard({
   first,
   last,
   lookupAvailable,
+  courseId,
 }: {
   lesson: Lesson;
+  courseId: string;
   number: number;
   first: boolean;
   last: boolean;
@@ -314,7 +322,8 @@ function LessonCard({
        qCount ? `${qCount} question${qCount === 1 ? '' : 's'}` : 'No questions',
        ...(lesson.written_prompts.length
          ? [`${lesson.written_prompts.length} written prompt${lesson.written_prompts.length === 1 ? '' : 's'}`]
-         : [])].join(', ');
+         : []),
+       ...(lesson.draft ? ['change waiting for review'] : lesson.needs_review ? ['not reviewed yet'] : [])].join(', ');
 
   return (
     <div className="rounded border border-gray-200">
@@ -352,6 +361,16 @@ function LessonCard({
 
       {open && !isScorm && (
         <div className="space-y-4 border-t border-gray-200 p-3">
+          {lesson.draft && (
+            <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+              A change to this lesson&apos;s questions is waiting for review{lesson.draft.note ? ` (${lesson.draft.note})` : ''}.
+              Staff still see the version below until someone approves the change on the{' '}
+              <a href={`/build/${courseId}/check#lesson-${lesson.id}`} className="font-medium underline">
+                Check page
+              </a>
+              .
+            </p>
+          )}
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Lesson title</span>
             <input value={title} onChange={(e) => setTitle(e.target.value)} className={input} />
@@ -761,8 +780,11 @@ function ImportPreview({
                     written_prompts: v.written_prompts,
                     expectancy: v.expectancy,
                     pass_mark: passMark,
+                    note: v.source.set_title
+                      ? `Imported from the question maker: ${v.source.set_title}`.slice(0, 500)
+                      : 'Imported from the question maker',
                   },
-                  'Imported.'
+                  'Imported. Tick it off on the Check page once you have read it.'
                 );
                 if (res) onDone();
               }}>
