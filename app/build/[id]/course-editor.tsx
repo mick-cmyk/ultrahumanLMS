@@ -335,6 +335,9 @@ function LessonCard({
           <span className="block text-sm text-gray-600">{status}</span>
         </button>
         <div className="flex gap-2">
+          <button type="button" className={btn} aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? 'Close' : isScorm ? 'Open' : 'Edit video and questions'}
+          </button>
           <button type="button" className={btn} disabled={first || s.busy} aria-label="Move lesson up"
             onClick={() => s.save({ action: 'lesson.move', id: lesson.id, dir: -1 }, 'Moved.')}>
             &uarr;
