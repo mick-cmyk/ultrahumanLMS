@@ -22,7 +22,7 @@ export default async function LessonPage({
     supabase
       .from('lessons')
       .select(
-        'id, title, kind, scorm_package_id, bunny_video_id, sample_video_url, image_url, script, expectancy, duration_seconds, watch_threshold, modules(id, title, course_id, courses(id, title))'
+        'id, title, kind, scorm_package_id, bunny_video_id, sample_video_url, image_url, script, expectancy, duration_seconds, watch_threshold, video_aspect, modules(id, title, course_id, courses(id, title))'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -94,6 +94,7 @@ export default async function LessonPage({
         title={lesson.title}
         durationSeconds={lesson.duration_seconds}
         watchThreshold={Number(lesson.watch_threshold)}
+        aspect={lesson.video_aspect == null ? null : Number(lesson.video_aspect)}
         embedUrl={embedUrl}
         sampleVideoUrl={lesson.sample_video_url}
         imageUrl={lesson.image_url}

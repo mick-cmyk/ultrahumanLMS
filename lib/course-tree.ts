@@ -30,6 +30,7 @@ export type CourseTree = {
   id: string;
   title: string;
   description: string | null;
+  require_watch: boolean;
   published: boolean;
   modules: TreeModule[];
 };
@@ -40,7 +41,7 @@ export async function loadCourseTree(supabase: SupabaseClient, id: string): Prom
   const { data } = await supabase
     .from('courses')
     .select(
-      'id, title, description, published, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, script, expectancy, reviewed_at, quizzes(pass_mark, questions), written_prompts(id, prompt, model_answer, max_words, sort_order), lesson_drafts(pass_mark, questions, written_prompts, expectancy, note, created_at)))'
+      'id, title, description, published, require_watch, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, script, expectancy, reviewed_at, quizzes(pass_mark, questions), written_prompts(id, prompt, model_answer, max_words, sort_order), lesson_drafts(pass_mark, questions, written_prompts, expectancy, note, created_at)))'
     )
     .eq('id', id)
     .maybeSingle();
@@ -86,6 +87,7 @@ export async function loadCourseTree(supabase: SupabaseClient, id: string): Prom
     id: data.id as string,
     title: data.title as string,
     description: (data.description as string | null) ?? null,
+    require_watch: (data.require_watch as boolean | null) !== false,
     published: Boolean(data.published),
     modules,
   };

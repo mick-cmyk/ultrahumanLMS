@@ -67,6 +67,9 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       const patch: Record<string, unknown> = {};
       if ('title' in b) patch.title = str(b.title, 200) || fail('The course needs a title.');
       if ('description' in b) patch.description = str(b.description) || null;
+      // Staff must watch 90% of each video before its quiz (true), or opening
+      // the lesson is enough (false). The database moves the lessons' threshold.
+      if ('require_watch' in b) patch.require_watch = b.require_watch !== false;
       check(await supabase.from('courses').update(patch).eq('id', id!));
       return { ok: true };
     }
@@ -168,6 +171,8 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
             if (!('duration_seconds' in b) && found.info.lengthSeconds > 0) {
               patch.duration_seconds = found.info.lengthSeconds;
             }
+            // The video's shape, so the player fits it (portrait or landscape).
+            if (found.info.aspect) patch.video_aspect = found.info.aspect;
             if (found.info.failed) note = 'Bunny says this video failed to process. Upload it again in Bunny.';
             else if (!found.info.ready) note = 'Bunny is still processing this video. It will play once that finishes.';
           } else if (found.reason === 'not-found') {

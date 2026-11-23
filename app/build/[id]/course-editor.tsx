@@ -27,7 +27,14 @@ type Lesson = {
   draft: { note: string | null; created_at: string } | null;
 };
 type Module = { id: string; title: string; intro: string | null; lessons: Lesson[] };
-type Course = { id: string; title: string; description: string | null; published: boolean; modules: Module[] };
+type Course = {
+  id: string;
+  title: string;
+  description: string | null;
+  require_watch: boolean;
+  published: boolean;
+  modules: Module[];
+};
 
 const input = 'w-full rounded border border-gray-300 bg-surface px-3 py-2';
 const btn = 'min-h-11 rounded border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50';
@@ -90,6 +97,7 @@ export function CourseEditor({ course, lookupAvailable }: { course: Course; look
 function CourseDetails({ course }: { course: Course }) {
   const [title, setTitle] = useState(course.title);
   const [description, setDescription] = useState(course.description ?? '');
+  const [requireWatch, setRequireWatch] = useState(course.require_watch);
   const { busy, msg, save } = useSave();
   return (
     <section className="space-y-3 rounded border border-gray-200 p-4">
@@ -103,12 +111,29 @@ function CourseDetails({ course }: { course: Course }) {
         <span className="mb-1 block text-sm text-gray-600">One or two sentences staff see at the top of the course.</span>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={input} />
       </label>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4"
+          checked={requireWatch}
+          onChange={(e) => setRequireWatch(e.target.checked)}
+        />
+        <span>
+          <span className="block text-sm font-medium">Staff must watch each video before its quiz</span>
+          <span className="block text-sm text-gray-600">
+            Ticked: the quiz opens once they&apos;ve watched 90% of the video. Not ticked: the video is optional and the
+            quiz is open straight away.
+          </span>
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           disabled={busy}
           className={primary}
-          onClick={() => save({ action: 'course.update', id: course.id, title, description })}
+          onClick={() =>
+            save({ action: 'course.update', id: course.id, title, description, require_watch: requireWatch })
+          }
         >
           Save details
         </button>

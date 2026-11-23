@@ -22,6 +22,7 @@ export function VideoPlayer({
   imageUrl,
   initialPct,
   initiallyWatched,
+  aspect,
 }: {
   lessonId: string;
   /** Lesson title, for the video frame's accessible name. */
@@ -33,6 +34,8 @@ export function VideoPlayer({
   imageUrl: string | null;
   initialPct: number;
   initiallyWatched: boolean;
+  /** Video width / height from Bunny; null means assume 16:9. */
+  aspect?: number | null;
 }) {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -152,10 +155,48 @@ export function VideoPlayer({
     };
   }, [mode, lessonId, router]);
 
+  // A course where watching is optional has a threshold of 0: opening the
+  // lesson counts, which unlocks the quiz (the server stamps watched_at).
+  const optional = watchThreshold <= 0;
+  useEffect(() => {
+    if (!optional || watchedRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lesson_id: lessonId, watch_pct: 0 }),
+        });
+        if (!res.ok || cancelled) return;
+        const row = await res.json();
+        if (row.watched_at && !watchedRef.current) {
+          watchedRef.current = true;
+          setWatched(true);
+          router.refresh();
+        }
+      } catch {
+        /* try again next visit */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [optional, lessonId, router]);
+
+  // Shown in steps of 10% so the number doesn't tick up every second.
+  const shownPct = Math.min(100, Math.floor(pct * 10) * 10);
+
+  // The frame takes the video's own shape. A portrait clip on a phone fills
+  // most of the screen height; it never grows past 80% of the screen height,
+  // so the progress and quiz stay in reach.
+  const ratio = aspect && aspect > 0 ? aspect : 16 / 9;
+  const frameStyle = { aspectRatio: String(ratio), width: `min(100%, calc(80svh * ${ratio}))` };
+
   return (
     <div className="space-y-3">
       {mode === 'bunny' && (
-        <div className="aspect-video w-full overflow-hidden rounded border border-gray-200 bg-black">
+        <div className="mx-auto overflow-hidden rounded border border-gray-200 bg-black" style={frameStyle}>
           <iframe
             ref={iframeRef}
             src={embedUrl!}
@@ -169,7 +210,7 @@ export function VideoPlayer({
 
       {mode === 'sample' && (
         <div className="space-y-1">
-          <div className="aspect-video w-full overflow-hidden rounded border border-gray-200 bg-black">
+          <div className="mx-auto overflow-hidden rounded border border-gray-200 bg-black" style={frameStyle}>
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               ref={videoRef}
@@ -192,7 +233,18 @@ export function VideoPlayer({
         </div>
       )}
 
-      {mode !== 'none' && (
+      {mode !== 'none' && optional && (
+        <p className="text-sm text-gray-600">
+          {watched ? (
+            <span className="font-medium text-green-700">
+              <span aria-hidden="true">✓ </span>The quiz is open.
+            </span>
+          ) : null}{' '}
+          Watching the video is optional for this course, but it will help with the questions.
+        </p>
+      )}
+
+      {mode !== 'none' && !optional && (
         <>
           <div className="flex items-center justify-between text-sm">
             {watched ? (
@@ -201,7 +253,7 @@ export function VideoPlayer({
               </span>
             ) : (
               <span className="text-gray-600">
-                You&apos;ve watched {Math.round(pct * 100)}%. It counts as watched at{' '}
+                You&apos;ve watched {shownPct}%. It counts as watched at{' '}
                 {Math.round(watchThreshold * 100)}%.
               </span>
             )}
@@ -211,12 +263,12 @@ export function VideoPlayer({
             aria-label="How much of the video you've watched"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(pct * 100)}
+            aria-valuenow={shownPct}
             className="h-2 w-full rounded bg-gray-100"
           >
             <div
               className={`h-2 rounded ${watched ? 'bg-green-600' : 'bg-gray-600'}`}
-              style={{ width: `${Math.round(pct * 100)}%` }}
+              style={{ width: `${watched ? 100 : shownPct}%` }}
             />
           </div>
         </>

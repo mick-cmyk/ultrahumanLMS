@@ -49,6 +49,8 @@ export type BunnyVideoInfo = {
   // Bunny status 4 = finished encoding, 5 = failed; anything else is still working.
   ready: boolean;
   failed: boolean;
+  /** Width / height, when Bunny knows it (portrait clips are below 1). */
+  aspect: number | null;
 };
 
 // Looks the video up in the library to fill in its length. Needs the library's
@@ -67,7 +69,8 @@ export async function fetchBunnyVideo(
     );
     if (res.status === 404) return { ok: false, reason: 'not-found' };
     if (!res.ok) return { ok: false, reason: 'error' };
-    const v = (await res.json()) as { title?: string; length?: number; status?: number };
+    const v = (await res.json()) as { title?: string; length?: number; status?: number; width?: number; height?: number };
+    const aspect = v.width && v.height ? Math.round((v.width / v.height) * 10000) / 10000 : null;
     return {
       ok: true,
       info: {
@@ -75,6 +78,7 @@ export async function fetchBunnyVideo(
         lengthSeconds: Math.round(v.length ?? 0),
         ready: v.status === 4,
         failed: v.status === 5,
+        aspect: aspect && aspect > 0.2 && aspect < 5 ? aspect : null,
       },
     };
   } catch {

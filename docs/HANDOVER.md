@@ -57,6 +57,12 @@ Sun and moon switch in the header on every page, logged in or out. With no choic
 - **Not covered**: people who join or move into a unit after the assignment was saved don't get the email (they still see the course).
 - **Deploy**: `npm run email:deploy` now includes `course-notify`. On a new project, `schedule_edge_jobs` schedules all three.
 
+## Lesson player tweaks (25 Nov 2026)
+
+- **Video shape**: `lessons.video_aspect` (width / height) is filled from Bunny when a video is set in the builder; the player takes that shape, up to 80% of the screen height. The 12 Bunny videos are portrait (1080x1920) and were backfilled.
+- **Watched amount** shows in 10% steps.
+- **"Staff must watch each video before its quiz"** tick on the course details (`courses.require_watch`, `20261125000100_watch_options_and_aspect.sql`). Unticked, the course's video lessons get a watch threshold of 0 (triggers keep it in step, new lessons follow); opening the lesson records a 0% watch, which counts, so the quiz opens straight away and every existing completion and re-test rule works unchanged. Ticking it again restores 90%; progress already earned stays.
+
 ## To do
 
 0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.
