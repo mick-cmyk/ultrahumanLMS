@@ -54,7 +54,11 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth') ||
     /^\/retest\/[^/]+\/?$/.test(pathname) ||
-    pathname === '/api/retest/start';
+    pathname === '/api/retest/start' ||
+    // Self-registration: the sign-up pages and the route behind them.
+    pathname === '/register' ||
+    /^\/register\/[^/]+\/?$/.test(pathname) ||
+    pathname === '/api/register';
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

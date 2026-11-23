@@ -12,6 +12,7 @@ type User = {
   role: Role;
   active: boolean;
   unit_id: string | null;
+  is_approver: boolean;
 };
 type TreeUnit = Unit & { depth: number };
 type Scope = { user_id: string; unit_id: string };
@@ -71,6 +72,7 @@ export function PeopleClient({
       active?: boolean;
       role?: Role;
       unit_id?: string | null;
+      is_approver?: boolean;
       add_scope?: string;
       remove_scope?: string;
     }
@@ -385,6 +387,20 @@ export function PeopleClient({
                         </option>
                       ))}
                     </select>
+                    {(u.role === 'manager' || u.role === 'admin') && (
+                      <label
+                        className="mt-2 flex items-center gap-2 text-xs"
+                        title="Approvers are emailed about sign-up requests for the places they can see, and approve them."
+                      >
+                        <input
+                          type="checkbox"
+                          checked={u.is_approver}
+                          disabled={busyId === u.id}
+                          onChange={(e) => update(u.id, { is_approver: e.target.checked })}
+                        />
+                        Approver
+                      </label>
+                    )}
                     {usesScope && (
                       <div className="mt-2 space-y-1">
                         <div className="text-xs text-gray-500">Can see:</div>

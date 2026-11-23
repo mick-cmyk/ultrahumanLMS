@@ -16,7 +16,7 @@ export default async function TeamPage() {
   const profile = await requireRole(['manager']);
   const supabase = await createClient();
 
-  const [{ data: staff }, { data: summary }, { data: units }, { data: scopes }] =
+  const [{ data: staff }, { data: summary }, { data: units }, { data: scopes }, { data: pending }] =
     await Promise.all([
       // Row level security scopes this to the manager's part of the tree.
       supabase
@@ -26,7 +26,10 @@ export default async function TeamPage() {
       supabase.rpc('report_courses_summary'),
       supabase.from('units').select('id, parent_id, kind, name, state, suburb, path, active'),
       supabase.from('user_scopes').select('unit_id').eq('user_id', profile.id),
+      // Sign-up requests this manager can approve (none unless they're an approver).
+      supabase.rpc('pending_registrations'),
     ]);
+  const pendingCount = (pending ?? []).length;
 
   const allUnits = (units ?? []) as Unit[];
   const byId = new Map(allUnits.map((u) => [u.id, u]));
@@ -58,6 +61,14 @@ export default async function TeamPage() {
           this list current is what keeps the reporting honest.
         </p>
       </div>
+      {pendingCount > 0 && (
+        <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+          {pendingCount} {pendingCount === 1 ? 'person has' : 'people have'} asked to join your team.{' '}
+          <Link href="/approvals" className="font-medium underline">
+            Approve or decline
+          </Link>
+        </p>
+      )}
 
       <TeamClient
         staff={team}

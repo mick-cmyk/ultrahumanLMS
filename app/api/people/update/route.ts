@@ -7,7 +7,9 @@ import { createClient } from '@/lib/supabase/server';
 // admin's own session, so row level security is the final gate. Soft delete
 // only (the active flag), never a hard delete.
 //
-// Body: { id, active?, role?, unit_id?, add_scope?, remove_scope? }
+// Body: { id, active?, role?, unit_id?, is_approver?, add_scope?, remove_scope? }
+// is_approver only sticks for managers and admins; it's cleared when someone
+// becomes a learner or viewer.
 export async function POST(request: Request) {
   const profile = await getProfile();
   if (!profile) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -20,6 +22,7 @@ export async function POST(request: Request) {
     active?: boolean;
     role?: string;
     unit_id?: string | null;
+    is_approver?: boolean;
     add_scope?: string;
     remove_scope?: string;
   };
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { id, active, role, unit_id, add_scope, remove_scope } = payload;
+  const { id, active, role, unit_id, is_approver, add_scope, remove_scope } = payload;
   if (typeof id !== 'string') {
     return NextResponse.json({ error: 'id is required' }, { status: 400 });
   }
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
   if (typeof active === 'boolean') patch.active = active;
   if (role !== undefined) patch.role = role;
   if (unit_id !== undefined) patch.unit_id = unit_id;
+  if (typeof is_approver === 'boolean') patch.is_approver = is_approver;
+  if (role === 'learner' || role === 'viewer') patch.is_approver = false;
 
   if (Object.keys(patch).length > 0) {
     const { data, error } = await supabase.from('users').update(patch).eq('id', id).select('id');

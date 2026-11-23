@@ -39,8 +39,18 @@ Admins build video courses in the app at **Courses** (`/build`). Guide for conte
 
 Sun and moon switch in the header on every page, logged in or out. With no choice made the app follows the device setting (pure CSS, no script); a choice is saved in a `theme` cookie for a year and the server renders it, so there's no flash. Dark mode swaps Tailwind's grey and status colour variables in `app/globals.css` rather than adding `dark:` classes everywhere; use `bg-surface` for page and input backgrounds, not `bg-white`. Brand ink and tint have dark versions derived and contrast-checked in `brands/colour.ts`. Checked by screenshot on the landing page, staff pages (phone) and every admin page.
 
+## Adding people and self sign-up (24 Nov 2026)
+
+- **Add a person** (People page, admins): name, email, place, role, through `/api/staff` (the database decides who may be placed where). A role other than learner applies only to a brand new login; re-adding someone never changes their role.
+- **Self sign-up** (`20261124000100_self_registration.sql`). Two ways in: a sign-up link for one place, `/register/<code>` (made on the People page under "Self sign-up", with a QR code to download for a poster; "New link" kills the old one), and the general page `/register` where people pick their place from a list of every active place (off by default; when on, the login page links to it). "Approve automatically" is one switch: on, everyone gets a login straight away and a "you're in" email; off, the request waits.
+- **Approvers**: an "Approver" tick on managers and admins (People list). Each approver is emailed about requests for places they can see (admins: all) and decides them on `/approvals` (banner on People and Team when any are waiting). Approving creates the login and sends the "you're in" email. With nobody ticked, requests wait unseen; the panel warns about that.
+- **Safety**: requests live in `registration_requests`, unreachable through the API. The public route (`/api/register`) rate-limits per address and per email, has a hidden trap field for bots, refuses `.invalid` addresses, and gives an existing account exactly the same answer as a new person, without touching it. `registration_options` is the only function anon can execute (the core test allows exactly that one).
+- **Emails from the app** go through `lib/email.ts` (Resend API, same sender as the edge functions). Needs `RESEND_API_KEY` and `EMAIL_FROM` in Vercel; without a key it logs instead of sending.
+- **Verified** on dev against the live database as the demo admin: link and QR made, sign-up page logged out, request appeared on Approvals and was declined, approver tick saves. 50 database checks. **Not yet verified**: approving into a real login, the auto-approve path and the emails arriving (needs a real address; see To do).
+
 ## To do
 
+0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.
 0. **Bunny settings** in Vercel and `.env.local`, then build one real course end to end with the builder and take it as a learner.
 1. **Videos.** The demo lessons reuse the four old sample clips (narration is about retail add-on selling). Needs real safety footage on Bunny, or neutral placeholders, before showing anyone. Bunny captions need turning on per video; the sample clips have no `<track>`.
 2. **Mick:** send a magic link to his own address on the live site and check it arrives, looks right and isn't in spam.
