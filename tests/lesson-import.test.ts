@@ -9,7 +9,7 @@ const good = {
     idea: 'People speak up when the cost of being wrong is low.',
     expectancy: 'By the end you will explain to a new starter why one bad meeting changes who talks.',
     questions: [
-      { id: 'q1', text: 'What makes someone stay quiet?', options: ['Fear of looking wrong', 'Being tired', 'The agenda'], correct_index: 0, explanation: 'The cost of being wrong. Drafted with AI, checked by P1xel Forge.' },
+      { id: 'q1', text: 'What makes someone stay quiet?', options: ['Fear of looking wrong', 'Being tired', 'The agenda'], correct_index: 0, explanation: 'The cost of being wrong.' },
     ],
     written_prompts: [{ id: 'w1', prompt: 'Explain it in one sentence.', model_answer: 'Because being wrong cost too much last time.', max_words: 40 }],
   },

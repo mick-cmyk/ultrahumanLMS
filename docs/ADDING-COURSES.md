@@ -82,8 +82,7 @@ What staff see:
 - **Before you watch:** one sentence above the video telling them what they'll
   have to explain. It goes first on purpose. You can edit it on the lesson
   under **Before the video**.
-- **The quiz**, as usual, with the explanation after every answer. Explanations
-  the question maker drafted with AI say so.
+- **The quiz**, as usual, with the explanation after every answer.
 - **Explain it in your own words:** not marked. They write an answer, send it,
   and only then see the model answer. They can't change their answer after
   that. Managers can read what their team wrote.
