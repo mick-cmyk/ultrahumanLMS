@@ -8,17 +8,19 @@
 //
 // Video comes from each lesson's sample_video_url (a file under public/ or a
 // URL) or, for Bunny lessons, the library's MP4 rendition. Bunny needs "MP4
-// fallback" turned on in the library and BUNNY_STREAM_CDN_HOST set to the pull
-// zone, e.g. vz-abc123.b-cdn.net.
+// fallback" turned on in the library. The pull zone (e.g. vz-abc123.b-cdn.net)
+// is found from the embed page, or set BUNNY_STREAM_CDN_HOST to override it.
+// Admins can also export from the course builder (Download as SCORM).
 //
 // Before a package goes to a customer, test it in SCORM Cloud or Moodle.
 // SCORM lessons inside a course are skipped (a package can't contain another).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { getBrand, getBrandTokens } from '../brands';
 import { buildPackageZip, slug, type ExportCourse, type ExportLesson } from '../lib/scorm/export';
 import { adminClient, die, must } from './db';
+import { bunnyCdnHost } from '../lib/bunny';
 
 function parseArgs(argv: string[]) {
   const out: Record<string, string> = {};
@@ -29,14 +31,16 @@ function parseArgs(argv: string[]) {
 }
 
 async function fetchBytes(url: string): Promise<Uint8Array | null> {
-  const res = await fetch(url);
+  // The Bunny pull zone only serves requests that come from the app's own site.
+  const site = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+  const res = await fetch(url, site ? { headers: { Referer: site.replace(/\/?$/, '/') } } : undefined);
   if (!res.ok) return null;
   return new Uint8Array(await res.arrayBuffer());
 }
 
 async function loadVideo(lesson: { title: string; sample_video_url?: string | null; bunny_video_id?: string | null }) {
   if (lesson.bunny_video_id) {
-    const host = process.env.BUNNY_STREAM_CDN_HOST;
+    const host = await bunnyCdnHost(lesson.bunny_video_id);
     if (!host) die(`"${lesson.title}" is a Bunny video. Set BUNNY_STREAM_CDN_HOST in .env.local (the library's pull zone).`);
     for (const q of ['720p', '480p', '360p', '240p']) {
       const bytes = await fetchBytes(`https://${host}/${lesson.bunny_video_id}/play_${q}.mp4`);
@@ -155,7 +159,7 @@ async function main() {
   else die('Pass --course <course id>, or --seed attach-selling for the demo course.');
 
   const zip = buildPackageZip(course);
-  const dir = join(process.cwd(), args.out && args.out !== 'true' ? args.out : 'exports');
+  const dir = resolve(args.out && args.out !== 'true' ? args.out : 'exports');
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${slug(course.title)}-scorm12.zip`);
   writeFileSync(file, zip);

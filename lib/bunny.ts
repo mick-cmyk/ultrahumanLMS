@@ -85,3 +85,23 @@ export async function fetchBunnyVideo(
     return { ok: false, reason: 'error' };
   }
 }
+
+// The library's pull zone (e.g. vz-abc123.b-cdn.net), where Bunny keeps the MP4
+// copies used by the SCORM export. BUNNY_STREAM_CDN_HOST wins when set;
+// otherwise it's read once from a signed embed page, which names the host.
+let cdnHostCache: string | null = null;
+export async function bunnyCdnHost(sampleVideoId: string | null): Promise<string | null> {
+  const fromEnv = process.env.BUNNY_STREAM_CDN_HOST?.trim();
+  if (fromEnv) return fromEnv;
+  if (cdnHostCache) return cdnHostCache;
+  const url = sampleVideoId ? signedEmbedUrl(sampleVideoId) : null;
+  if (!url) return null;
+  try {
+    const html = await (await fetch(url, { cache: 'no-store' })).text();
+    const host = html.match(/\bvz-[a-z0-9-]+\.b-cdn\.net\b/i)?.[0].toLowerCase() ?? null;
+    if (host) cdnHostCache = host;
+    return host;
+  } catch {
+    return null;
+  }
+}

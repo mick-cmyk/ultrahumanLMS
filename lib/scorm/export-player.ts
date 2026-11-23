@@ -41,7 +41,7 @@ nav ol{list-style:none;padding:0;margin:16px 0;display:grid;gap:6px}
 nav button{width:100%;text-align:left;min-height:44px;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font:inherit;cursor:pointer}
 nav button[aria-current="true"]{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
 .tick{float:right;color:#166534;font-weight:600}
-video{width:100%;background:#000;border-radius:8px;display:block}
+video{width:100%;max-height:80vh;background:#000;border-radius:8px;display:block}
 details{border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;margin:12px 0}
 summary{cursor:pointer;font-weight:600}
 fieldset{border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;padding:10px 12px}
@@ -195,7 +195,9 @@ export const PLAYER_JS = `(function () {
 
     var marks = seen[l.id] || (seen[l.id] = {});
     function showStatus() {
-      status.textContent = isWatched(l)
+      status.textContent = l.threshold <= 0
+        ? 'Watching is optional for this course.' + (l.quiz && !quizPassed(l) ? ' The quiz is below.' : '')
+        : isWatched(l)
         ? 'Watched.' + (l.quiz && !quizPassed(l) ? ' The quiz is below.' : '')
         : 'Watched ' + Math.round(watchPct(l) * 100) + '%. It counts as watched at ' + Math.round(l.threshold * 100) + '%.';
     }

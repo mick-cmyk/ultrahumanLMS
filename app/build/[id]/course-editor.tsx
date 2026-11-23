@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { courseApi, download, formatDuration, parseDuration } from '../api';
+import { ScormExport } from './scorm-export';
 import {
   ANSWER_LETTERS,
   parseQuestionsCsv,
@@ -88,6 +89,7 @@ export function CourseEditor({ course, lookupAvailable }: { course: Course; look
         />
       ))}
       <AddModule courseId={course.id} first={course.modules.length === 0} />
+      {course.modules.length > 0 && <ScormExport courseId={course.id} />}
       <DeleteCourse course={course} />
     </div>
   );
