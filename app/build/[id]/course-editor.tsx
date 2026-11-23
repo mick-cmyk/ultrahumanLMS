@@ -434,13 +434,17 @@ function Questions({ lesson }: { lesson: Lesson }) {
   const [imported, setImported] = useState<{ value: LessonImport | null; errors: string[]; file: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const jsonRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const s = useSave();
   const slug = lesson.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'lesson';
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
-    if (!f) return;
+    if (f) await readCsv(f);
+  }
+
+  async function readCsv(f: File) {
     s.setMsg(null);
     if (!/\.(csv|txt)$/i.test(f.name)) {
       setPending({ questions: [], errors: ['Save the spreadsheet as CSV first (File, Save as, CSV), then upload that file.'], file: f.name });
@@ -457,7 +461,10 @@ function Questions({ lesson }: { lesson: Lesson }) {
   async function onJson(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
-    if (!f) return;
+    if (f) await readJson(f);
+  }
+
+  async function readJson(f: File) {
     s.setMsg(null);
     setPending(null);
     if (f.size > 1024 * 1024) {
@@ -465,6 +472,29 @@ function Questions({ lesson }: { lesson: Lesson }) {
       return;
     }
     setImported({ ...parseLessonImport(await f.text()), file: f.name });
+  }
+
+  // Drop a file anywhere on the panel: a .json goes to the question maker
+  // import, anything else to the CSV upload (which explains what it wants).
+  function onDragOver(e: React.DragEvent) {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!dragging) setDragging(true);
+  }
+
+  function onDragLeave(e: React.DragEvent) {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setDragging(false);
+  }
+
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    if (/\.json$/i.test(f.name) || f.type === 'application/json') await readJson(f);
+    else await readCsv(f);
   }
 
   if (imported) {
@@ -482,7 +512,12 @@ function Questions({ lesson }: { lesson: Lesson }) {
   const shown = pending && pending.errors.length === 0 ? pending.questions : current;
 
   return (
-    <div className="space-y-3 rounded bg-gray-50 p-3">
+    <div
+      className={`space-y-3 rounded bg-gray-50 p-3 ${dragging ? 'ring-2 ring-brand' : ''}`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div>
         <h3 className="font-medium">Questions</h3>
         <p className="text-sm text-gray-600">
@@ -508,6 +543,14 @@ function Questions({ lesson }: { lesson: Lesson }) {
             Download these questions
           </button>
         )}
+      </div>
+
+      <div
+        className={`rounded border-2 border-dashed px-3 py-4 text-center text-sm ${
+          dragging ? 'border-brand bg-brand-soft text-gray-900' : 'border-gray-300 text-gray-600'
+        }`}
+      >
+        {dragging ? 'Drop it to read it. Nothing saves until you check it.' : 'Or drop the question maker file (.json) or a questions CSV here.'}
       </div>
 
       {pending && pending.errors.length > 0 && (
