@@ -23,7 +23,7 @@ export default async function PeoplePage() {
       <div>
         <h1 className="text-xl font-semibold">People</h1>
         <p className="text-gray-600">
-          Everyone in the system. Import a list, change roles, choose what a
+          Everyone in the system. Add someone, import a list, change roles, choose what a
           viewer or manager can see, or deactivate someone who&apos;s left.
         </p>
       </div>

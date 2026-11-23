@@ -123,6 +123,71 @@ export function PeopleClient({
     }
   }
 
+  // Add one person. /api/staff checks with the database that the caller may
+  // place this email in this unit, then creates the login. A role other than
+  // learner is applied only to someone brand new; an existing person's role is
+  // never changed by adding them again (change it in the list instead).
+  const [addName, setAddName] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addUnit, setAddUnit] = useState('');
+  const [addRole, setAddRole] = useState<Role>('learner');
+  const [adding, setAdding] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function addPerson(e: React.FormEvent) {
+    e.preventDefault();
+    setAddMsg(null);
+    if (!addName.trim() || !addEmail.trim() || !addUnit) {
+      setAddMsg({ ok: false, text: 'Fill in their name, email and where they work.' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addEmail.trim())) {
+      setAddMsg({ ok: false, text: "That email address doesn't look right." });
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', full_name: addName, email: addEmail, unit_id: addUnit }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddMsg({ ok: false, text: body.error ?? 'Could not add that person.' });
+        return;
+      }
+      const name = addName.trim();
+      let text = body.created
+        ? `${name} has been added. They can log in with their email address on the login page.`
+        : `${name} already had a login, so they have been moved here and switched on. Their role hasn't changed.`;
+      if (body.created && addRole !== 'learner') {
+        const steps: Record<string, unknown>[] = [{ role: addRole }];
+        if (addRole === 'viewer' || addRole === 'manager') steps.push({ add_scope: addUnit });
+        for (const step of steps) {
+          const r = await fetch('/api/people/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: body.id, ...step }),
+          });
+          if (!r.ok) {
+            text += ` Their role couldn't be set to ${addRole}, so they are a learner for now. Change it in the list below.`;
+            break;
+          }
+        }
+      }
+      setAddMsg({ ok: true, text });
+      setAddName('');
+      setAddEmail('');
+      setAddRole('learner');
+      router.refresh();
+    } catch {
+      setAddMsg({ ok: false, text: 'Could not add that person.' });
+    } finally {
+      setAdding(false);
+    }
+  }
+
   const unitOption = (u: TreeUnit) => (
     <option key={u.id} value={u.id}>
       {'  '.repeat(u.depth)}
@@ -134,8 +199,82 @@ export function PeopleClient({
     <div className="space-y-6">
       {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+      <form onSubmit={addPerson} className="space-y-3 rounded border border-gray-200 p-4" noValidate>
+        <div>
+          <h2 className="font-medium">Add a person</h2>
+          <p className="text-sm text-gray-600">
+            They log in with this email address. No password needed.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Full name</span>
+            <input
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              autoComplete="off"
+              className="w-full rounded border border-gray-300 bg-surface px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Email</span>
+            <input
+              type="email"
+              value={addEmail}
+              onChange={(e) => setAddEmail(e.target.value)}
+              autoComplete="off"
+              className="w-full rounded border border-gray-300 bg-surface px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Where they work</span>
+            <select
+              value={addUnit}
+              onChange={(e) => setAddUnit(e.target.value)}
+              className="w-full rounded border border-gray-300 bg-surface px-3 py-2"
+            >
+              <option value="">Choose...</option>
+              {units.filter((u) => u.active).map(unitOption)}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Role</span>
+            <select
+              value={addRole}
+              onChange={(e) => setAddRole(e.target.value as Role)}
+              className="w-full rounded border border-gray-300 bg-surface px-3 py-2"
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}: {ROLE_HELP[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {(addRole === 'viewer' || addRole === 'manager') && (
+          <p className="text-sm text-gray-600">
+            They will see the place chosen above and everything under it. You can add more places in the list below.
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={adding}
+            className="rounded bg-brand hover:opacity-90 px-4 py-2 text-sm font-medium text-brand-fg disabled:opacity-50"
+          >
+            {adding ? 'Adding...' : 'Add person'}
+          </button>
+          {addMsg && (
+            <p role="status" className={`text-sm ${addMsg.ok ? 'text-green-700' : 'text-red-700'}`}>
+              {addMsg.text}
+            </p>
+          )}
+        </div>
+      </form>
+
       <details className="rounded border border-gray-200 p-4">
-        <summary className="cursor-pointer font-medium">Import from CSV</summary>
+        <summary className="cursor-pointer font-medium">Import a list from CSV</summary>
         <div className="mt-3 space-y-2">
           <p className="text-sm text-gray-600">
             Columns: <code>email, full_name, unit</code>. The unit is the name

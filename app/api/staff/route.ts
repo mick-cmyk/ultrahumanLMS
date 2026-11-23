@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     }
 
     try {
-      const { created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
-      return NextResponse.json({ ok: true, created });
+      const { id, created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
+      return NextResponse.json({ ok: true, id, created });
     } catch (e) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : 'Could not add that person' },
