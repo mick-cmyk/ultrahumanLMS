@@ -91,6 +91,24 @@
   }
 }
 
+/* Form controls follow the page colours. Without this a <select> with no
+   background class shows the browser's white list with the page's (light, in
+   dark mode) text, which is unreadable. In the base layer so any bg-* or
+   text-* class on a control still wins. */
+@layer base {
+  select,
+  option,
+  optgroup,
+  input,
+  textarea {
+    background-color: var(--surface);
+    color: var(--color-gray-900);
+  }
+  option:disabled {
+    color: var(--color-gray-500);
+  }
+}
+
 /* Visible keyboard focus everywhere, in the brand colour. */
 :focus-visible {
   outline: 2px solid var(--brand-ink);
