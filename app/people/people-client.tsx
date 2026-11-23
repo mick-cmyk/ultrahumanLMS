@@ -344,11 +344,10 @@ export function PeopleClient({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-500">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Email</th>
+              <th className="py-2 pr-4">Person</th>
               <th className="py-2 pr-4">Where</th>
               <th className="py-2 pr-4">Role</th>
-              <th className="py-2 pr-4">Status</th>
+              <th className="py-2">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -360,9 +359,12 @@ export function PeopleClient({
                   key={u.id}
                   className={`border-b border-gray-100 align-top ${u.active ? '' : 'text-gray-500'}`}
                 >
-                  <td className="py-2 pr-4">{u.full_name ?? '-'}</td>
-                  <td className="py-2 pr-4">{u.email}</td>
-                  <td className="py-2 pr-4">
+                  <td className="py-2 pr-4 align-top">
+                    {/* Email under the name, so the table fits without scrolling sideways. */}
+                    <span className="block font-medium">{u.full_name ?? '-'}</span>
+                    <span className="block break-all text-xs text-gray-600">{u.email}</span>
+                  </td>
+                  <td className="py-2 pr-4 align-top">
                     <select
                       value={u.unit_id ?? ''}
                       disabled={busyId === u.id}
@@ -373,7 +375,7 @@ export function PeopleClient({
                       {units.map(unitOption)}
                     </select>
                   </td>
-                  <td className="py-2 pr-4">
+                  <td className="py-2 pr-4 align-top">
                     <select
                       value={u.role}
                       disabled={busyId === u.id || u.id === me}
@@ -426,7 +428,7 @@ export function PeopleClient({
                           value=""
                           disabled={busyId === u.id}
                           onChange={(e) => e.target.value && update(u.id, { add_scope: e.target.value })}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs"
+                          className="w-full max-w-[14rem] rounded border border-gray-300 px-2 py-1 text-xs"
                         >
                           <option value="">Add a unit...</option>
                           {units.filter((x) => !mine.includes(x.id)).map(unitOption)}
@@ -434,7 +436,7 @@ export function PeopleClient({
                       </div>
                     )}
                   </td>
-                  <td className="py-2 pr-4">
+                  <td className="py-2 align-top">
                     <button
                       onClick={() => update(u.id, { active: !u.active })}
                       disabled={busyId === u.id || u.id === me}
@@ -452,7 +454,7 @@ export function PeopleClient({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-3 text-gray-500">
+                <td colSpan={4} className="py-3 text-gray-500">
                   No one matches those filters.
                 </td>
               </tr>
