@@ -31,10 +31,13 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
   const allLessons = tree.modules.flatMap((m) => m.lessons);
   const toReview = allLessons.filter((l) => l.needs_review).length;
   const waiting = allLessons.filter((l) => l.draft).length;
-  const { count: assignments } = await supabase
-    .from('assignments')
-    .select('id', { count: 'exact', head: true })
-    .eq('course_id', id);
+  const [{ count: assignments }, { data: assignedToMe }] = await Promise.all([
+    supabase.from('assignments').select('id', { count: 'exact', head: true }).eq('course_id', id),
+    // Is it assigned to this admin? Progress and quizzes only count on a
+    // published course assigned to you, so a half-built course never collects any.
+    supabase.rpc('user_sees_course', { p_course_id: id }),
+  ]);
+  const canTake = tree.published && assignedToMe === true;
 
   return (
     <div className="space-y-8">
@@ -44,6 +47,39 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
         </Link>
         <h1 className="mt-2 text-xl font-semibold">Check: {tree.title}</h1>
       </div>
+
+      {/* Go through the course for real, the way staff do. */}
+      <section className="flex flex-col gap-3 rounded border border-gray-200 bg-brand-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-semibold">Take the course</h2>
+          {canTake ? (
+            <p className="text-sm text-gray-600">
+              Watch the videos and answer the questions exactly as staff do. Your progress counts like anyone
+              else&apos;s, and the quick check will arrive by email.
+            </p>
+          ) : (
+            <p className="text-sm text-gray-600">
+              {tree.published
+                ? 'It isn’t assigned to you yet. Assign it to everyone, or add yourself under Individuals on the Assign page, then come back here.'
+                : 'Publish it first, then assign it to yourself (or everyone) on the Assign page. Until then, the Read it through section below shows every video and question.'}
+            </p>
+          )}
+        </div>
+        {canTake ? (
+          <Link
+            href={`/courses/${tree.id}`}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-brand px-6 py-2 font-semibold text-brand-fg hover:opacity-90"
+          >
+            Take the course <span aria-hidden="true">&nbsp;&rarr;</span>
+          </Link>
+        ) : (
+          tree.published && (
+            <Link href="/assign" className="shrink-0 font-medium text-brand-ink underline">
+              Go to Assign
+            </Link>
+          )
+        )}
+      </section>
 
       <section className="space-y-3 rounded border border-gray-200 p-4">
         <h2 className="font-semibold">
