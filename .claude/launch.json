@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "ultrahuman-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Users\\mick\\UltraHuman LMS", "run", "dev", "--", "-p", "3001"],
+      "port": 3001
+    },
+    {
       "name": "playlist-ripper",
       "runtimeExecutable": "node",
       "runtimeArgs": ["C:\\Users\\mick\\Music\\playlist-rips\\server.js"],
