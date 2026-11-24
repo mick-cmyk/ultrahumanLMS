@@ -8,6 +8,7 @@ import { checkCourse, hasErrors } from '@/lib/course-check';
 import { ANSWER_LETTERS } from '@/lib/quiz-csv';
 import { formatDuration } from '../../api';
 import { PublishButton } from './publish-button';
+import { WatchSetting } from './watch-setting';
 import { DraftActions, ReviewControl } from './review-controls';
 import type { QuizQuestion } from '@/lib/quiz-csv';
 import type { WrittenPrompt } from '@/lib/lesson-import';
@@ -81,6 +82,9 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
             ))}
           </ul>
         )}
+        <div className="border-t border-gray-200 pt-3">
+          <WatchSetting courseId={tree.id} requireWatch={tree.require_watch} />
+        </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <PublishButton courseId={tree.id} published={tree.published} blocked={hasErrors(issues)} />
           {tree.published && (
