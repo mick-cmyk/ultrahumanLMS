@@ -21,8 +21,11 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
   const searchParams = useSearchParams();
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error' | 'unknown'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error' | 'unknown' | 'wait'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // Seconds left before another link can be asked for. The sign-in service
+  // allows one link per email address a minute.
+  const [wait, setWait] = useState(0);
   const linkError = searchParams.get('error');
   const Heading = variant === 'page' ? 'h1' : 'h2';
 
@@ -41,6 +44,13 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
       }
     });
   }, [router]);
+
+  // Count the wait down once a second; the message updates as it goes.
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
@@ -66,8 +76,19 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
         setStatus('unknown');
         return;
       }
+      // Asked again too soon: one link per email address a minute.
+      const seconds = error.message.match(/after (\d+) seconds?/i);
+      if (seconds) {
+        setStatus('wait');
+        setWait(Number(seconds[1]));
+        return;
+      }
       setStatus('error');
-      setErrorMessage('Something went wrong sending your link. Try again in a minute.');
+      setErrorMessage(
+        error.status === 429
+          ? 'A lot of login emails have gone out in the last hour. Wait a few minutes, then try again.'
+          : 'Something went wrong sending your link. Try again in a minute.'
+      );
       return;
     }
     setStatus('sent');
@@ -80,6 +101,9 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
         <p className="text-gray-600">
           We&apos;ve sent a login link to <strong>{email}</strong>. Tap it on this device and
           you&apos;re in. No password needed.
+        </p>
+        <p className="text-sm text-gray-500">
+          Not there after a minute? Check your junk or spam folder. You can ask for a new link once a minute.
         </p>
       </div>
     );
@@ -115,10 +139,10 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
         </label>
         <button
           type="submit"
-          disabled={status === 'sending'}
+          disabled={status === 'sending' || (status === 'wait' && wait > 0)}
           className="w-full rounded bg-brand px-4 py-2.5 font-medium text-brand-fg hover:opacity-90 disabled:opacity-50"
         >
-          {status === 'sending' ? 'Sending…' : 'Send me a login link'}
+          {status === 'sending' ? 'Sending…' : status === 'wait' && wait > 0 ? `Try again in ${wait}s` : 'Send me a login link'}
         </button>
       </form>
       {status === 'unknown' && (
@@ -147,6 +171,18 @@ function Form({ autoFocus = false, variant = 'page', signupOpen = false }: Props
           ) : (
             <p>We couldn&apos;t find that email. Check the spelling, or ask your manager to add you.</p>
           )}
+        </div>
+      )}
+      {status === 'wait' && (
+        <div className="space-y-1 rounded bg-amber-50 p-3 text-sm text-amber-800">
+          {/* Only this line is announced; the ticking countdown below is not. */}
+          <p role="alert" className="font-medium">A login link was sent to this email less than a minute ago.</p>
+          <p>
+            Check your inbox and junk folder first, it may already be there.{' '}
+            {wait > 0
+              ? `For safety, you can ask for a new one in ${wait} second${wait === 1 ? '' : 's'}.`
+              : 'You can ask for a new one now.'}
+          </p>
         </div>
       )}
       {status === 'error' && (
