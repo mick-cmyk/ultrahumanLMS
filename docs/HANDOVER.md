@@ -94,7 +94,7 @@ Limits: anyone with the Supabase project's own dashboard or database password ca
 2. **Mick:** send a magic link to his own address on the live site and check it arrives, looks right and isn't in spam.
 3. **Mick:** make sure `support@octolab.com.au` actually receives mail.
 4. **Retire `lms.kenshu.com.au`:** redirect it to `lms.octolab.com.au`, then remove it from Supabase redirect URLs.
-5. **SCORM by hand:** import a package on `/import` as an admin, preview, assign, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one.
+5. **SCORM by hand:** (export checked by Mick in an online SCORM viewer, 24 Nov 2026: works. Still to do: the import side.) import a package on `/import` as an admin, preview, assign, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one.
 6. Brand field still to confirm with Mick: `voice.emailSignoff`.
 7. UltraHuman: new Supabase project (Sydney region) and Vercel project, plus a real `brands/ultrahuman.ts`.
 
