@@ -6,6 +6,7 @@ import { courseApi, download, formatDuration, parseDuration } from '../api';
 import { ScormExport } from './scorm-export';
 import {
   ANSWER_LETTERS,
+  MAX_QUESTIONS,
   parseQuestionsCsv,
   questionsToCsv,
   templateCsv,
@@ -25,7 +26,7 @@ type Lesson = {
   expectancy: string | null;
   written_prompts: WrittenPrompt[];
   needs_review: boolean;
-  draft: { note: string | null; created_at: string } | null;
+  draft: { note: string | null; created_at: string; questions?: QuizQuestion[]; pass_mark?: number } | null;
 };
 type Module = { id: string; title: string; intro: string | null; lessons: Lesson[] };
 type Course = {
@@ -455,7 +456,10 @@ function LessonCard({
 
 // ------------------------------------------------------------------ questions
 function Questions({ lesson }: { lesson: Lesson }) {
-  const current = lesson.quiz?.questions ?? [];
+  // On a live course, edits go to the change waiting for review, so keep
+  // building on that version rather than the one staff see.
+  const editingDraft = Boolean(lesson.draft?.questions);
+  const current = (editingDraft ? lesson.draft!.questions : lesson.quiz?.questions) ?? [];
   const [passMark, setPassMark] = useState(lesson.quiz?.pass_mark ?? 0.8);
   const [pending, setPending] = useState<{ questions: QuizQuestion[]; errors: string[]; file: string } | null>(null);
   const [imported, setImported] = useState<{ value: LessonImport | null; errors: string[]; file: string } | null>(null);
@@ -598,7 +602,16 @@ function Questions({ lesson }: { lesson: Lesson }) {
         </p>
       )}
 
-      {shown.length === 0 ? (
+      {!pending ? (
+        <QuestionList
+          questions={current}
+          editingDraft={editingDraft}
+          busy={s.busy}
+          onSave={async (questions, okText) =>
+            Boolean(await s.save({ action: 'quiz.set', lesson_id: lesson.id, questions, pass_mark: passMark }, okText))
+          }
+        />
+      ) : shown.length === 0 ? (
         <p className="text-sm text-gray-600">No questions yet. Without them this lesson is watch only.</p>
       ) : (
         <ol className="space-y-3">
@@ -665,6 +678,265 @@ function Questions({ lesson }: { lesson: Lesson }) {
       </div>
       <Msg msg={s.msg} />
     </div>
+  );
+}
+
+// ---------------------------------------------------- editing questions
+function newQuestionId(used: QuizQuestion[]): string {
+  const ids = new Set(used.map((q) => q.id));
+  let id: string;
+  do {
+    id = 'q-' + Math.random().toString(36).slice(2, 10);
+  } while (ids.has(id));
+  return id;
+}
+
+function move<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+// The lesson's questions, each with Edit, Move up, Move down and Delete, and
+// an "Add a question" form at the end. Every change saves straight away.
+function QuestionList({
+  questions,
+  editingDraft,
+  busy,
+  onSave,
+}: {
+  questions: QuizQuestion[];
+  editingDraft: boolean;
+  busy: boolean;
+  onSave: (questions: QuizQuestion[], okText: string) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState<number | 'new' | null>(null);
+  const atMax = questions.length >= MAX_QUESTIONS;
+
+  async function saveOne(q: QuizQuestion) {
+    const next = editing === 'new' ? [...questions, q] : questions.map((x, i) => (i === editing ? q : x));
+    if (await onSave(next, editing === 'new' ? 'Question added.' : 'Question saved.')) setEditing(null);
+  }
+
+  return (
+    <div className="space-y-3">
+      {editingDraft && (
+        <p className="text-sm text-amber-800">Showing the version waiting for review. Changes here add to it.</p>
+      )}
+      {questions.length === 0 && editing !== 'new' && (
+        <p className="text-sm text-gray-600">No questions yet. Without them this lesson is watch only.</p>
+      )}
+      {questions.length > 0 && (
+        <ol className="space-y-3">
+          {questions.map((q, i) =>
+            editing === i ? (
+              <li key={q.id}>
+                <QuestionForm number={i + 1} initial={q} busy={busy} onSave={saveOne} onCancel={() => setEditing(null)} />
+              </li>
+            ) : (
+              <li key={q.id} className="rounded border border-gray-200 bg-surface p-3 text-sm">
+                <p className="font-medium">
+                  {i + 1}. {q.text}
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {q.options.map((o, j) => (
+                    <li key={j} className={j === q.correct_index ? 'font-medium text-green-800' : 'text-gray-700'}>
+                      {ANSWER_LETTERS[j]}. {o} {j === q.correct_index && '(correct)'}
+                    </li>
+                  ))}
+                </ul>
+                {q.explanation && <p className="mt-1 text-gray-600">Why: {q.explanation}</p>}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className={btn} disabled={busy || editing !== null} onClick={() => setEditing(i)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className={btn}
+                    disabled={busy || editing !== null || i === 0}
+                    aria-label={`Move question ${i + 1} up`}
+                    onClick={() => onSave(move(questions, i, i - 1), 'Order saved.')}
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    className={btn}
+                    disabled={busy || editing !== null || i === questions.length - 1}
+                    aria-label={`Move question ${i + 1} down`}
+                    onClick={() => onSave(move(questions, i, i + 1), 'Order saved.')}
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    className={`${btn} text-red-700`}
+                    disabled={busy || editing !== null}
+                    onClick={() => {
+                      if (confirm(`Delete question ${i + 1}?`)) {
+                        onSave(questions.filter((_, k) => k !== i), 'Question deleted.');
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            )
+          )}
+        </ol>
+      )}
+      {editing === 'new' ? (
+        <QuestionForm
+          number={questions.length + 1}
+          initial={{ id: newQuestionId(questions), text: '', options: ['', '', ''], correct_index: 0, explanation: '' }}
+          busy={busy}
+          onSave={saveOne}
+          onCancel={() => setEditing(null)}
+        />
+      ) : (
+        <button type="button" className={btn} disabled={busy || editing !== null || atMax} onClick={() => setEditing('new')}>
+          {atMax ? `${MAX_QUESTIONS} questions is the most for one lesson` : '+ Add a question'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function QuestionForm({
+  number,
+  initial,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  number: number;
+  initial: QuizQuestion;
+  busy: boolean;
+  onSave: (q: QuizQuestion) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(initial.text);
+  const [options, setOptions] = useState<string[]>(initial.options);
+  const [correct, setCorrect] = useState(initial.correct_index);
+  const [explanation, setExplanation] = useState(initial.explanation ?? '');
+  const [error, setError] = useState('');
+  const group = `correct-${initial.id}`;
+
+  function moveOption(from: number, to: number) {
+    setOptions((o) => move(o, from, to));
+    // The correct answer travels with its text.
+    setCorrect((c) => (c === from ? to : c === to ? from : c));
+  }
+
+  function removeOption(i: number) {
+    setOptions((o) => o.filter((_, k) => k !== i));
+    setCorrect((c) => (c === i ? 0 : c > i ? c - 1 : c));
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const cleaned = options.map((o) => o.trim());
+    if (!text.trim()) return setError('Write the question.');
+    if (cleaned.some((o) => !o)) return setError('Fill in every answer, or remove the empty ones.');
+    if (new Set(cleaned.map((o) => o.toLowerCase())).size !== cleaned.length) return setError('Two answers are the same.');
+    setError('');
+    onSave({
+      id: initial.id,
+      text: text.trim(),
+      options: cleaned,
+      correct_index: correct,
+      ...(explanation.trim() ? { explanation: explanation.trim() } : {}),
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded border border-brand bg-surface p-3 text-sm">
+      <p className="font-medium">{initial.text ? `Edit question ${number}` : `New question ${number}`}</p>
+      <label className="block">
+        <span className="mb-1 block font-medium">Question</span>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={500} className={input} autoFocus />
+      </label>
+
+      <fieldset className="space-y-2">
+        <legend className="mb-1 font-medium">Answers (tick the correct one)</legend>
+        {options.map((o, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <input
+              type="radio"
+              name={group}
+              checked={correct === i}
+              onChange={() => setCorrect(i)}
+              aria-label={`Answer ${ANSWER_LETTERS[i]} is correct`}
+              className="h-5 w-5"
+            />
+            <span className="w-5 font-medium">{ANSWER_LETTERS[i]}.</span>
+            <input
+              value={o}
+              onChange={(e) => setOptions((all) => all.map((x, k) => (k === i ? e.target.value : x)))}
+              maxLength={500}
+              aria-label={`Answer ${ANSWER_LETTERS[i]}`}
+              className={`${input} min-w-0 flex-1`}
+            />
+            <span className="flex gap-1">
+              <button
+                type="button"
+                className={btn}
+                disabled={i === 0}
+                onClick={() => moveOption(i, i - 1)}
+                aria-label={`Move answer ${ANSWER_LETTERS[i]} up`}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                className={btn}
+                disabled={i === options.length - 1}
+                onClick={() => moveOption(i, i + 1)}
+                aria-label={`Move answer ${ANSWER_LETTERS[i]} down`}
+              >
+                Down
+              </button>
+              <button
+                type="button"
+                className={`${btn} text-red-700`}
+                disabled={options.length <= 2}
+                onClick={() => removeOption(i)}
+                aria-label={`Remove answer ${ANSWER_LETTERS[i]}`}
+              >
+                Remove
+              </button>
+            </span>
+          </div>
+        ))}
+        {options.length < ANSWER_LETTERS.length && (
+          <button type="button" className={btn} onClick={() => setOptions((o) => [...o, ''])}>
+            + Add an answer
+          </button>
+        )}
+      </fieldset>
+
+      <label className="block">
+        <span className="mb-1 block font-medium">Why (optional)</span>
+        <span className="mb-1 block text-gray-600">Shown after they answer, right or wrong.</span>
+        <textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} maxLength={500} className={input} />
+      </label>
+
+      {error && (
+        <p role="alert" className="text-red-700">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className={primary}>
+          {busy ? 'Saving...' : 'Save question'}
+        </button>
+        <button type="button" className={btn} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
