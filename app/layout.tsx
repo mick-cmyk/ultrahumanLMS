@@ -81,7 +81,14 @@ export default async function RootLayout({
         <header className="border-b border-gray-200 border-t-4 border-t-brand">
           <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
             <Link href="/" className="flex items-center gap-2 font-semibold">
-              {brand.logoUrl ? (
+              {brand.welcome?.logoUrl ? (
+                // A client's wide logo (the same one as the welcome page), on every page.
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={brand.welcome.logoUrl} alt={brand.name} className="h-4 w-auto max-w-[180px] dark:invert sm:h-5" />
+                  <span className="text-sm font-medium text-gray-600">Training</span>
+                </>
+              ) : brand.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={brand.logoUrl} alt={brand.name} className="h-7 max-w-[160px] object-contain dark:rounded dark:bg-white dark:p-0.5" />
               ) : (
