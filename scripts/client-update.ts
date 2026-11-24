@@ -74,13 +74,14 @@ async function main() {
 
   // ---------------------------------------------------------- database
   run(`npx supabase link --project-ref ${ref}`, `Point the database tools at ${ref}`, '');
-  const list = sh('npx supabase migration list');
-  const pending = (list.stdout.match(/"local":"(\d+)","remote":""/g) ?? []).map((m) => m.match(/\d+/)![0]);
-  if (pending.length) {
-    console.log(`\nDatabase changes to apply: ${pending.join(', ')}`);
-    run('npx supabase db push', 'Apply database changes', yes ? 'y\n' : undefined);
-  } else {
-    console.log('\nNo database changes in this version.');
+  // Always ask the database tool itself: it lists anything not yet applied and
+  // asks before applying, or says the database is up to date. (Reading its
+  // `migration list` output instead missed a change on 25 Nov 2026: that
+  // output is a table in PowerShell and JSON elsewhere.)
+  run('npx supabase db push', 'Apply any database changes in this version', yes ? 'y\n' : undefined);
+  const after = sh('npx supabase db push --dry-run');
+  if (!/up to date/i.test(`${after.stdout}${after.stderr}`)) {
+    die('The database still has changes waiting. Run `npx supabase db push` in this folder and check its message.');
   }
 
   // ---------------------------------------------------------- emails
