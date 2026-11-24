@@ -56,9 +56,10 @@ select throws_ok($$insert into public.units (kind,name) values ('supplier','Seco
 -- ------------------------------------------------ privilege baseline (M1/M5)
 select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid=p.pronamespace
            where n.nspname='public' and has_function_privilege('anon', p.oid, 'execute')
-             -- The one exception: the public sign-up page (20261124000100_self_registration.sql).
-             and p.proname <> 'registration_options'), 0,
-  'anon can execute no public function except the sign-up page options');
+             -- The exceptions: the public sign-up page (20261124000100_self_registration.sql)
+             -- and the public welcome page wording (20261127000100_site_text.sql).
+             and p.proname not in ('registration_options', 'welcome_text')), 0,
+  'anon can execute no public function except the sign-up page options and welcome wording');
 select is((select count(*)::int from pg_class c join pg_namespace n on n.oid=c.relnamespace
            where n.nspname='public' and c.relkind in ('r','v') and
            (has_table_privilege('anon', c.oid, 'select') or has_table_privilege('anon', c.oid, 'insert'))), 0,

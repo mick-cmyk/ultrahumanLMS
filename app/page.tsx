@@ -16,8 +16,12 @@ const check = getBrand().voice.checkName;
 export default async function MyTrainingPage() {
   const profile = await getProfile();
   if (!profile) {
-    const { data } = await (await createClient()).rpc('registration_options', { p_code: null });
-    return <Landing signupOpen={(data as { open?: boolean } | null)?.open === true} />;
+    const supabase = await createClient();
+    const [{ data }, { data: savedWelcome }] = await Promise.all([
+      supabase.rpc('registration_options', { p_code: null }),
+      supabase.rpc('welcome_text'),
+    ]);
+    return <Landing signupOpen={(data as { open?: boolean } | null)?.open === true} savedWelcome={savedWelcome} />;
   }
   // Admins and viewers have no personal training; send them to reporting.
   if (homeFor(profile.role) !== '/') redirect(homeFor(profile.role));

@@ -2,6 +2,8 @@ import { Bricolage_Grotesque } from 'next/font/google';
 import { getBrand } from '@/brands';
 import { RETEST_DELAY_DAYS } from '@/lib/constants';
 import { LoginForm } from '@/components/login-form';
+import { Welcome } from '@/components/welcome';
+import { resolveWelcome, welcomeLogo } from '@/lib/welcome';
 
 // The public front page for anyone not logged in: what the product does, plus a
 // login box so staff who already have an account can get straight in. All
@@ -64,60 +66,11 @@ const sample = [
   { site: 'Eagle Farm depot', detail: '4 of 16 staff proven', pct: 25, tone: 'bg-red-100 text-red-800' },
 ];
 
-// A client deployment's front page: their logo, what this site is, how the
-// training works, and the login box. No sales pitch.
-function Welcome({ signupOpen, welcome }: { signupOpen: boolean; welcome: NonNullable<typeof brand.welcome> }) {
-  const website = brand.links.website;
-  const how = welcome.steps;
-
-  return (
-    <div className="mx-auto grid max-w-3xl gap-10 py-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start md:py-14">
-      <div className="min-w-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={welcome.logoUrl} alt={brand.name} className="h-6 w-auto dark:invert md:h-7" />
-        <h1 className={`${display.className} mt-8 text-3xl font-extrabold tracking-[-0.03em] text-balance md:text-4xl`}>
-          {welcome.heading}
-        </h1>
-        {welcome.intro.map((p) => (
-          <p key={p} className="mt-4 max-w-[44ch] text-lg text-gray-600">
-            {p}
-          </p>
-        ))}
-        <ol className="mt-8 grid gap-4">
-          {how.map((s, i) => (
-            <li key={s.title} className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand font-semibold text-brand-fg">
-                {i + 1}
-              </span>
-              <div>
-                <b className="block">{s.title}</b>
-                <span className="text-gray-600">{s.body}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      <div className="min-w-0">
-        <div id="login" className="rounded-2xl border border-gray-200 bg-gray-50 p-6 shadow-sm">
-          <LoginForm variant="card" signupOpen={signupOpen} />
-          {welcome.newHere && <p className="mt-4 text-sm text-gray-500">{welcome.newHere}</p>}
-        </div>
-        {website && welcome.websitePrompt && (
-          <p className="mt-4 text-sm text-gray-500">
-            {welcome.websitePrompt}{' '}
-            <a href={website} className="font-medium text-brand-ink underline">
-              {welcome.websiteLinkText}
-            </a>
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function Landing({ signupOpen = false }: { signupOpen?: boolean }) {
-  if (brand.welcome) return <Welcome signupOpen={signupOpen} welcome={brand.welcome} />;
+export function Landing({ signupOpen = false, savedWelcome = null }: { signupOpen?: boolean; savedWelcome?: unknown }) {
+  // A client site (or any site whose admin has saved welcome wording) gets the
+  // short welcome page instead of the product pitch.
+  const welcome = resolveWelcome(savedWelcome);
+  if (welcome.show) return <Welcome text={welcome.text} logoUrl={welcomeLogo()} signupOpen={signupOpen} />;
   const website = brand.links.website;
 
   return (

@@ -11,14 +11,8 @@ const ultrahuman: BrandConfig = {
   tagline: 'Product training for retail teams.',
   primaryColor: '#112BAF',
   logoUrl: null,
-  // ---------------------------------------------------------------------
-  // WELCOME PAGE TEXT (what people see before they log in).
-  // Change only the words inside the quote marks. For an apostrophe inside
-  // your text, use the curly one: you’ll, it’s (a straight ' would end the
-  // line early; the deploy command catches that and stops). No em dashes.
-  // Then run:
-  //   npm run welcome:deploy
-  // ---------------------------------------------------------------------
+  // Welcome page: the starting wording. Admins change it on the site
+  // (Settings page); "Put back the original" there returns to this.
   welcome: {
     logoUrl: '/brand/ultrahuman-logo.svg',
     heading: 'Welcome to Ultrahuman Training',
