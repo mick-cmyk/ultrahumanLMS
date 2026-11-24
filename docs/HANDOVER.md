@@ -73,6 +73,10 @@ Migration `20261126000100_messages.sql`, test `v2_messages.test.sql` (69 checks)
 - **Emails** go through `message_email_queue`, sent by the `course-notify` edge function after course emails, sharing the hourly limit (`_email_room`). They are only sent 8am to 8pm Sydney time (`_next_send_time`, right to disconnect); anything later waits until 8am. One waiting email per person per thread, and it's skipped if they read it first.
 - **Demo state:** discussions are ON in the demo so they can be seen. Test data left in: an update "Test update: new roster" from the Eagle Farm depot manager, Kiara's "Swapping a Saturday shift" conversation, and her tip on "Exclusion zones and walkways".
 
+## Versions
+
+- **Version 2** (git tag `v2`, 24 Nov 2026). Live on lms.octolab.com.au; database at migration `20261126000100_messages`. Since the first demo: Bunny videos and the course builder, add a person and self sign-up with approvers, "new course" emails on a send list, portrait video and optional watching, Next-lesson button, People list with Edit panels, SCORM download from the builder, Messages (updates, conversations, store-only lesson discussions), and editing, reordering and adding quiz questions. To look at it again: `git checkout v2` (then `git checkout main` to come back).
+
 ## To do
 
 0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.
