@@ -17,6 +17,6 @@ exports
 supabase/.temp
 
 # Source videos kept locally (they live in Bunny)
-Content/
+/Content/
 *.mp4
 *.mov

@@ -15,7 +15,7 @@ import {
   renderEmail,
   renderText,
   send,
-} from '../supabase/functions/_shared/email.ts';
+} from '../supabase/functions/_shared/email';
 
 const APP = process.env.APP_URL ?? 'http://localhost:3000';
 
