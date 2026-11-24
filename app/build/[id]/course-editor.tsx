@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { courseApi, download, formatDuration, parseDuration } from '../api';
+import { SendToManager } from './check/send-to-manager';
 import { ScormExport } from './scorm-export';
 import {
   ANSWER_LETTERS,
@@ -986,6 +987,7 @@ function Written({ lesson }: { lesson: Lesson }) {
               {p.max_words ? <span className="font-normal text-gray-600"> (up to {p.max_words} words)</span> : null}
             </p>
             {p.model_answer && <p className="mt-1 text-gray-600">Model answer: {p.model_answer}</p>}
+            <SendToManager lessonId={lesson.id} promptId={p.id} on={Boolean(p.send_to_manager)} />
           </li>
         ))}
       </ol>
