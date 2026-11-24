@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { NextButton, type NextStep } from './next-button';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { signedEmbedUrl } from '@/lib/bunny';
@@ -58,16 +59,35 @@ export default async function LessonPage({
   // the course page.
   const { data: outline } = await supabase
     .from('modules')
-    .select('sort_order, lessons(id, title, sort_order)')
+    .select('sort_order, lessons(id, title, kind, sort_order)')
     .eq('course_id', parentModule?.course_id ?? '');
   const ordered = (outline ?? [])
     .sort((a, b) => a.sort_order - b.sort_order)
     .flatMap((m) => [...(m.lessons ?? [])].sort((a, b) => a.sort_order - b.sort_order));
   const here = ordered.findIndex((l) => l.id === lesson.id);
   const following = here >= 0 ? ordered[here + 1] : undefined;
-  const next = following
-    ? { href: `/lessons/${following.id}`, label: `Next: ${following.title}` }
-    : { href: `/courses/${parentModule?.course_id}`, label: 'Finish and go back to the course' };
+  const next: NextStep = following
+    ? {
+        href: `/lessons/${following.id}`,
+        label: following.kind === 'video' ? 'Next video' : 'Next lesson',
+        eyebrow: 'Up next',
+        title: following.title,
+      }
+    : {
+        href: `/courses/${parentModule?.course_id}`,
+        label: 'Finish course',
+        eyebrow: 'All done',
+        title: 'That was the last one. Back to the course page.',
+      };
+
+  // The second Next button, at the bottom of the page: once the quiz is
+  // passed, or once a lesson with no quiz has been watched (get_lesson_quiz
+  // answers null for a watched lesson only when it has no quiz).
+  const done =
+    lesson.kind !== 'scorm' &&
+    (Boolean(progress?.quiz_passed_at) ||
+      (Boolean(progress?.watched_at) &&
+        !(await supabase.rpc('get_lesson_quiz', { p_lesson_id: lesson.id })).data));
 
   // Lesson discussion: only when an admin has turned it on.
   const [{ data: mode }, { data: me }] = await Promise.all([
@@ -171,6 +191,13 @@ export default async function LessonPage({
         </Link>
         .
       </p>
+
+      {done && (
+        <section aria-label="Next" className="rounded border border-gray-200 bg-brand-soft p-4">
+          <p className="text-sm font-medium">You&apos;ve finished this lesson.</p>
+          <NextButton next={next} />
+        </section>
+      )}
     </div>
   );
 }

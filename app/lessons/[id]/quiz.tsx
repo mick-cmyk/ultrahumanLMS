@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { NextButton, type NextStep } from './next-button';
 import Link from 'next/link';
 
 type Question = { id: string; text: string; options: string[] };
@@ -35,7 +36,7 @@ export function Quiz({
   unlocked: boolean;
   alreadyPassed: boolean;
   /** Where to go once passed: the next lesson, or back to the course. */
-  next?: { href: string; label: string };
+  next?: NextStep;
 }) {
   const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -138,9 +139,22 @@ export function Quiz({
     );
   }
 
-  // Unlocked but no quiz payload → watch-only lesson.
+  // Unlocked but no quiz payload: a watch-only lesson. Once it's watched,
+  // the way on is all that's needed.
   if (!quiz && !passed) {
-    return null;
+    if (error) {
+      return (
+        <section role="alert" className="rounded border border-gray-200 p-4 text-sm text-red-700">
+          {error}
+        </section>
+      );
+    }
+    return next ? (
+      <section className="rounded border border-gray-200 p-4">
+        <p className="text-sm text-gray-600">No quiz for this one.</p>
+        <NextButton next={next} />
+      </section>
+    ) : null;
   }
 
   const feedbackFor = (id: string) =>
@@ -265,18 +279,5 @@ export function Quiz({
         </form>
       )}
     </section>
-  );
-}
-
-function NextButton({ next }: { next: { href: string; label: string } }) {
-  return (
-    <div className="mt-3">
-      <Link
-        href={next.href}
-        className="inline-flex min-h-11 items-center rounded bg-brand px-4 py-2 font-medium text-brand-fg hover:opacity-90"
-      >
-        {next.label} <span aria-hidden="true">&nbsp;&rarr;</span>
-      </Link>
-    </div>
   );
 }
