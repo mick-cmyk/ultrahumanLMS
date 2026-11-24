@@ -22,7 +22,11 @@
     "brand:secrets": "tsx scripts/brand-build.ts secrets",
     "email:setup": "tsx --env-file=.env.local scripts/email-setup.ts",
     "test": "vitest run",
-    "scorm:export": "tsx --env-file-if-exists=.env.local scripts/scorm-export.ts"
+    "scorm:export": "tsx --env-file-if-exists=.env.local scripts/scorm-export.ts",
+    "auth:setup": "tsx --env-file=.env.local scripts/auth-setup.ts",
+    "vercel:env": "tsx --env-file=.env.local scripts/vercel-env.ts",
+    "release:mark": "tsx --env-file-if-exists=.env.local scripts/release-mark.ts",
+    "client:update": "tsx --env-file=.env.local scripts/client-update.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

@@ -40,3 +40,7 @@ files.zip
 filesv2.zip
 P1xel-Forge-*.pdf
 LMS Build Out/
+
+# Per-folder notes for Claude Code, and the client release log
+CLAUDE.local.md
+releases.log

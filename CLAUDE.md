@@ -40,6 +40,10 @@ Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `
 
 Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat. `npm run login:link -- --email x@octolab-demo.invalid` prints a sign-in link for a demo user.
 
+## Clients and releases
+
+This folder is for development and runs the Octolab demo. Each client has its own folder (a clone of its GitHub copy), with its own `.env.local`, Vercel link and `CLAUDE.local.md` notes, for example `C:\Users\mick\UltraHuman LMS`. Code changes are made and tested here, marked with `npm run release:mark -- --version vX.Y` (runs every check, tags, pushes to every remote), and reach a client only through `npm run client:update -- --version vX.Y` run in that client's folder. Never deploy a client from this folder or change code in a client folder. New client set-up: `docs/NEW-CLIENT.md` (uses `npm run auth:setup -- --apply` and `npm run vercel:env`).
+
 ## Scheduled jobs
 
 Hourly pg_cron calls two edge functions; they act only in the Sydney send window (8am for four hours, `SEND_START_HOUR` and `SEND_WINDOW_HOURS`). `retest-dispatch` sends due re-tests (7-day token) and one reminder after 3 days. `weekly-digest` acts Mondays and claims the ISO week via `claim_job_run`, so it sends once a week. Both fail closed without `CRON_SECRET`.
