@@ -6,6 +6,10 @@ type Prompt = {
   id: string;
   prompt: string;
   max_words: number | null;
+  /** The answer goes to their nearest manager in Messages. */
+  send_to_manager?: boolean;
+  /** Set just after this answer was sent on (this visit only). */
+  just_sent?: boolean;
   answer: string | null;
   model_answer: string | null;
 };
@@ -99,7 +103,7 @@ function PromptItem({
         setError(body.error ?? 'Could not save that. Try again.');
         return;
       }
-      onSaved({ ...prompt, answer: body.answer, model_answer: body.model_answer ?? null });
+      onSaved({ ...prompt, answer: body.answer, model_answer: body.model_answer ?? null, just_sent: body.sent_to_manager === true });
     } catch {
       setError('Could not save that. Try again.');
     } finally {
@@ -115,6 +119,16 @@ function PromptItem({
           <p className="text-gray-600">You wrote:</p>
           <p className="mt-1 whitespace-pre-line">{prompt.answer}</p>
         </div>
+        {prompt.send_to_manager && (
+          <p className="text-sm text-gray-600">
+            {prompt.just_sent ? 'Sent to your manager. ' : 'This answer went to your manager. '}
+            Any reply shows in{' '}
+            <a href="/messages" className="text-brand-ink underline">
+              Messages
+            </a>
+            .
+          </p>
+        )}
         {prompt.model_answer && (
           <div className="rounded border border-green-500 bg-green-50 p-3 text-sm">
             <p className="text-green-800">How we&apos;d put it:</p>
@@ -130,6 +144,9 @@ function PromptItem({
       <label htmlFor={inputId} className="block font-medium">
         {prompt.prompt}
       </label>
+      {prompt.send_to_manager && (
+        <p className="text-sm text-gray-600">Your answer will be sent to your manager.</p>
+      )}
       <textarea
         id={inputId}
         value={draft}

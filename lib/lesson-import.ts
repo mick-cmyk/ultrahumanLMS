@@ -34,6 +34,8 @@ export type WrittenPrompt = {
   prompt: string;
   model_answer: string | null;
   max_words: number | null;
+  /** Answers go to the person's nearest manager in Messages (set on the Check page). */
+  send_to_manager?: boolean;
 };
 
 export type LessonImport = {

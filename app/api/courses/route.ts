@@ -230,6 +230,14 @@ async function handle(supabase: SupabaseClient, b: Body): Promise<Record<string,
       await setWrittenPrompts(supabase, lessonId, b.written_prompts);
       return { ok: true };
     }
+    // Send a written prompt's answers to the person's manager, or stop. Not a
+    // change to the questions, so it applies straight away with no review.
+    case 'written.send': {
+      const lessonId = str(b.lesson_id, 64) || fail('Missing lesson.');
+      const promptId = str(b.prompt_id, 100) || fail('Missing question.');
+      check(await supabase.rpc('set_written_prompt_send', { p_lesson_id: lessonId, p_prompt_id: promptId, p_on: b.on === true }));
+      return { ok: true };
+    }
     // A lesson file from the question maker: quiz, written prompts and the
     // sentence shown before the video, in one go. Questions first, because
     // they're the part the database is most likely to refuse.

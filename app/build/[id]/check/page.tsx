@@ -9,6 +9,7 @@ import { ANSWER_LETTERS } from '@/lib/quiz-csv';
 import { formatDuration } from '../../api';
 import { PublishButton } from './publish-button';
 import { WatchSetting } from './watch-setting';
+import { SendToManager } from './send-to-manager';
 import { DraftActions, ReviewControl } from './review-controls';
 import type { QuizQuestion } from '@/lib/quiz-csv';
 import type { WrittenPrompt } from '@/lib/lesson-import';
@@ -224,7 +225,7 @@ export default async function CheckCoursePage({ params }: { params: Promise<{ id
                     ) : (
                       <p className="text-sm text-gray-600">No questions. Watch only.</p>
                     ))}
-                  {l.kind !== 'scorm' && <PromptList prompts={l.written_prompts} />}
+                  {l.kind !== 'scorm' && <PromptList prompts={l.written_prompts} lessonId={l.id} />}
                   {l.kind !== 'scorm' && (
                     <ReviewControl lessonId={l.id} reviewedAt={l.reviewed_at} needsReview={l.needs_review} />
                   )}
@@ -289,7 +290,8 @@ function QuestionList({ passMark, questions }: { passMark: number; questions: Qu
   );
 }
 
-function PromptList({ prompts }: { prompts: WrittenPrompt[] }) {
+// lessonId is given for the live prompts (tick box shown), not for a waiting change.
+function PromptList({ prompts, lessonId }: { prompts: WrittenPrompt[]; lessonId?: string }) {
   if (!prompts.length) return null;
   return (
     <div className="space-y-2 text-sm">
@@ -302,6 +304,7 @@ function PromptList({ prompts }: { prompts: WrittenPrompt[] }) {
               {p.max_words ? <span className="font-normal text-gray-600"> (up to {p.max_words} words)</span> : null}
             </p>
             {p.model_answer && <p className="text-gray-600">Model answer: {p.model_answer}</p>}
+            {lessonId && <SendToManager lessonId={lessonId} promptId={p.id} on={Boolean(p.send_to_manager)} />}
           </li>
         ))}
       </ol>
