@@ -3,20 +3,24 @@ import { createClient } from '@/lib/supabase/server';
 import { orderTree, type Unit } from '@/lib/units';
 import { PeopleClient } from './people-client';
 import { SignupPanel } from './signup-panel';
+import { DeveloperRequests, type DeveloperRequest } from './developer-requests';
 
 export default async function PeoplePage() {
   const profile = await requireRole(['admin']);
   const supabase = await createClient();
 
-  const [{ data: users }, { data: units }, { data: scopes }, { data: settings }, { data: pending }] = await Promise.all([
+  const [{ data: users }, { data: units }, { data: scopes }, { data: settings }, { data: pending }, { data: waiting }, { data: mine }] =
+    await Promise.all([
     supabase
       .from('users')
-      .select('id, full_name, email, role, active, unit_id, is_approver')
+      .select('id, full_name, email, role, active, unit_id, is_approver, is_developer')
       .order('full_name'),
     supabase.from('units').select('id, parent_id, kind, name, state, suburb, path, active, signup_code'),
     supabase.from('user_scopes').select('user_id, unit_id'),
     supabase.rpc('registration_settings'),
     supabase.rpc('pending_registrations'),
+    supabase.rpc('developer_requests_waiting'),
+    supabase.rpc('my_developer_requests'),
   ]);
   const reg = (settings ?? {}) as { general?: boolean; auto_approve?: boolean };
   const approverCount = (users ?? []).filter(
@@ -34,6 +38,7 @@ export default async function PeoplePage() {
           viewer or manager can see, or deactivate someone who&apos;s left.
         </p>
       </div>
+      {((mine ?? []) as DeveloperRequest[]).length > 0 && <DeveloperRequests requests={mine as DeveloperRequest[]} />}
       <SignupPanel
         units={tree}
         general={reg.general === true}
@@ -46,6 +51,7 @@ export default async function PeoplePage() {
         users={users ?? []}
         units={tree}
         scopes={scopes ?? []}
+        developerWaiting={((waiting ?? []) as { developer_id: string }[]).map((w) => w.developer_id)}
       />
     </div>
   );

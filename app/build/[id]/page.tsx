@@ -29,12 +29,22 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
               : 'Draft. Staff can\'t see it yet.'}
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        {tree.modules.length > 0 && (
+          <a
+            href="#scorm-export"
+            className="inline-flex min-h-11 items-center rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
+          >
+            Download SCORM
+          </a>
+        )}
         <Link
           href={`/build/${tree.id}/check`}
           className="inline-flex min-h-11 items-center rounded bg-brand px-4 py-2 font-medium text-brand-fg hover:opacity-90"
         >
           {tree.published ? 'Check course' : 'Check and publish'}
         </Link>
+        </div>
       </div>
       {!bunnyConfigured() && (
         <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">

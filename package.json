@@ -15,6 +15,7 @@
     "seed:purge": "tsx --env-file=.env.local seed/octolab.ts purge",
     "admin:bootstrap": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",
     "golive:check": "tsx --env-file=.env.local scripts/go-live-check.ts",
+    "developer:set": "tsx --env-file=.env.local scripts/developer-set.ts",
     "typecheck": "tsc --noEmit",
     "login:link": "tsx --env-file=.env.local scripts/login-link.ts",
     "brand:build": "tsx scripts/brand-build.ts",

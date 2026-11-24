@@ -137,7 +137,7 @@ export function ScormExport({ courseId }: { courseId: string }) {
   }
 
   return (
-    <section className="space-y-3 rounded border border-gray-200 p-4">
+    <section id="scorm-export" className="scroll-mt-4 space-y-3 rounded border border-gray-200 p-4">
       <h2 className="font-semibold">Download as SCORM</h2>
       <p className="text-sm text-gray-600">
         A SCORM 1.2 file that another LMS can import. The videos, quizzes, written questions, &quot;before you

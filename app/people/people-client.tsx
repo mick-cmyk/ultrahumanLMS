@@ -13,6 +13,7 @@ type User = {
   active: boolean;
   unit_id: string | null;
   is_approver: boolean;
+  is_developer: boolean;
 };
 type TreeUnit = Unit & { depth: number };
 type Scope = { user_id: string; unit_id: string };
@@ -30,11 +31,13 @@ export function PeopleClient({
   users,
   units,
   scopes,
+  developerWaiting = [],
 }: {
   me: string;
   users: User[];
   units: TreeUnit[];
   scopes: Scope[];
+  developerWaiting?: string[];
 }) {
   const router = useRouter();
   const [unitFilter, setUnitFilter] = useState('');
@@ -354,6 +357,7 @@ export function PeopleClient({
             unitById={unitById}
             scopes={scopesByUser.get(u.id) ?? []}
             update={(patch) => update(u.id, patch)}
+            developerWaiting={developerWaiting.includes(u.id)}
           />
         ))}
         {filtered.length === 0 && <li className="py-3 text-sm text-gray-500">No one matches those filters.</li>}
@@ -385,6 +389,7 @@ function PersonRow({
   unitById,
   scopes,
   update,
+  developerWaiting,
 }: {
   user: User;
   isMe: boolean;
@@ -395,7 +400,11 @@ function PersonRow({
   unitById: Map<string, TreeUnit>;
   scopes: string[];
   update: (patch: Patch) => void;
+  developerWaiting: boolean;
 }) {
+  // The developer keeps the highest access: other admins can't change their role
+  // or deactivate them, only ask them to give it up.
+  const locked = u.is_developer && !isMe;
   const unit = u.unit_id ? unitById.get(u.unit_id) : undefined;
   const usesScope = u.role === 'viewer' || u.role === 'manager';
   const canApprove = u.role === 'manager' || u.role === 'admin';
@@ -436,6 +445,9 @@ function PersonRow({
         </div>
         <div className="flex w-40 flex-wrap items-center gap-1 text-sm">
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 font-medium text-gray-800">{ROLE_NAME[u.role]}</span>
+          {u.is_developer && (
+            <span className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-medium text-brand-fg">Developer</span>
+          )}
           {canApprove && u.is_approver && (
             <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand-ink">Approver</span>
           )}
@@ -477,7 +489,7 @@ function PersonRow({
             <span className="mb-2 block text-sm text-gray-600">{ROLE_HELP[u.role]}.</span>
             <select
               value={u.role}
-              disabled={busy || isMe}
+              disabled={busy || isMe || locked}
               onChange={(e) => update({ role: e.target.value as Role })}
               className={field}
             >
@@ -549,11 +561,17 @@ function PersonRow({
             </label>
           )}
 
+          {u.is_developer && (
+            <div className="sm:col-span-2">
+              <DeveloperNote user={u} isMe={isMe} waiting={developerWaiting} />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 sm:col-span-2">
             <button
               type="button"
               onClick={() => update({ active: !u.active })}
-              disabled={busy || isMe}
+              disabled={busy || isMe || locked}
               className={`min-h-11 rounded border px-4 py-2 text-sm ${
                 u.active ? 'border-gray-300 text-red-700 hover:bg-gray-100' : 'border-green-300 text-green-700 hover:bg-green-50'
               }`}
@@ -570,5 +588,92 @@ function PersonRow({
         </div>
       )}
     </li>
+  );
+}
+
+// Shown in the developer's Edit panel. Other admins can only ask the developer to
+// give up developer access; the developer decides (People page and email).
+function DeveloperNote({ user: u, isMe, waiting }: { user: User; isMe: boolean; waiting: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  if (isMe) {
+    return (
+      <p className="rounded bg-brand-soft p-3 text-sm text-brand-ink">
+        You&apos;re the developer. Nobody can change your role, deactivate you or remove your access unless you approve
+        it.
+      </p>
+    );
+  }
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/developer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', developer_id: u.id, reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) setMsg({ ok: false, text: body.error ?? 'Could not send the request.' });
+      else {
+        setMsg({ ok: true, text: 'Sent. The developer has been emailed and can approve or decline it.' });
+        setOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded bg-brand-soft p-3 text-sm text-brand-ink">
+      <p>
+        <span className="font-medium">{u.full_name ?? u.email} is the developer.</span> Their role and access can&apos;t be
+        changed or removed unless they approve it.
+      </p>
+      {waiting ? (
+        <p>A request to remove their developer access is waiting for them to decide.</p>
+      ) : open ? (
+        <form onSubmit={send} className="space-y-2">
+          <label className="block">
+            <span className="mb-1 block font-medium">Why do you need their developer access removed?</span>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              maxLength={500}
+              className="w-full rounded border border-gray-300 bg-surface px-3 py-2 text-gray-900"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="min-h-11 rounded bg-brand px-4 py-2 font-medium text-brand-fg hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? 'Sending...' : 'Send request to the developer'}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="min-h-11 px-2 underline">
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} className="underline">
+          Ask the developer to give up developer access
+        </button>
+      )}
+      {msg && (
+        <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-green-800' : 'text-red-700'}>
+          {msg.text}
+        </p>
+      )}
+    </div>
   );
 }

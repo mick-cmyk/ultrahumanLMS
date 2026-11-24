@@ -79,6 +79,12 @@ Save points are git tags, pushed to the private GitHub copy (github.com/mick-cmy
 
 - **Version 2** (git tag `v2`, 24 Nov 2026). Live on lms.octolab.com.au; database at migration `20261126000100_messages`. Since the first demo: Bunny videos and the course builder, add a person and self sign-up with approvers, "new course" emails on a send list, portrait video and optional watching, Next-lesson button, People list with Edit panels, SCORM download from the builder, Messages (updates, conversations, store-only lesson discussions), and editing, reordering and adding quiz questions. To look at it again: `git checkout v2` (then `git checkout main` to come back).
 
+## Developer access (24 Nov 2026)
+
+Mick keeps the highest access on every deployment. `users.is_developer` (migration `20261126000200_developer.sql`, test `v2_developer.test.sql`, 19 checks): a database trigger refuses any change to a developer's role, active flag or developer mark, and any delete of their account, from the app, the service role or the auth admin API, unless the developer approved it. Admins see a "Developer" badge on People, the controls are locked, and they can only "Ask the developer to give up developer access" (emails the developer). The developer sees the request at the top of People and approves or declines. Marked on the demo: mick@mickrussell.com. Also: a "Download SCORM" button at the top of each course page jumps to the export box; `golive:check` and the new `developer:set` script were fixed to run (top-level await isn't supported by the tsx setup here, so scripts wrap their work in `main()`).
+
+Limits: anyone with the Supabase project's own dashboard or database password can still do anything. Keep each client's Supabase, Vercel and GitHub under Mick's accounts (client staff get app logins, not dashboard access).
+
 ## To do
 
 0. **Self sign-up, first real run:** tick yourself as Approver, make a link, sign up on your phone with a second address of your own, check the approver email arrives, approve, check the "you're in" email and log in. Then try once with "Approve automatically" on.
@@ -112,7 +118,7 @@ Save points are git tags, pushed to the private GitHub copy (github.com/mick-cmy
 
 ## Before any brand goes live
 
-`npm run seed:purge`, `npm run admin:bootstrap -- --email ... --name ... --supplier ...`, then `npm run golive:check -- --finish`.
+`npm run seed:purge`, `npm run admin:bootstrap -- --email ... --name ... --supplier ...`, `npm run developer:set -- --email <Mick's address>`, then `npm run golive:check -- --finish` (it refuses without a developer).
 
 ## Decisions on record
 

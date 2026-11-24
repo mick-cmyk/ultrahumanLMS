@@ -15,6 +15,7 @@ One `units` tree per deployment: supplier (root) > Level 1 retail brand > Level 
 - **Privileges are an allowlist** (`20261017001000_lockdown.sql`). New tables and functions get no grants by default. Internal functions are service-role only. No write grants on `lesson_progress`, `retests`, `retest_tokens`.
 - **Self sign-up** (`/register`, `/register/<code>`) records requests through `submit_registration`; approval is a database decision (`can_decide_registration`). An existing login is never changed by signing up, and the public answer never reveals whether an email has an account.
 - **Messages** (`20261126000100_messages.sql`): updates use the assignment rule via `user_matches_rule`, cut to a manager's scope; conversations are always visible to the managers above the person, never private between staff; lesson discussions stay within one unit and are off unless an admin turns them on. Message emails only go 8am to 8pm Sydney time.
+- **Developer access** (`20261126000200_developer.sql`): `users.is_developer` marks the platform developer on every deployment (`npm run developer:set -- --email ...`; `golive:check` fails without one). Nobody, including the service role, can change their role, deactivate, unmark or delete them; admins can only `request_developer_removal`, and only the developer can approve. Never weaken this guard. It is visible on People, never hidden.
 - **Magic links only.** No password UI. Re-test emails open a landing page with a Start button; only the POST to `/api/retest/start` issues a session (mail scanners prefetch GETs).
 - **Courses are built in the app** (`/build`, admins) through `/api/courses` under the admin's session. Quiz question shape is enforced in the database (`quizzes_check_questions`); `lib/quiz-csv.ts` and `lib/course-check.ts` are the shared parse and publish rules. Never delete content that has learner progress.
 - **Watch tracking** counts unique seconds seen, at least 90% of duration. The server keeps `greatest(existing, incoming)`, so scrubbing to the end never counts.
@@ -34,6 +35,7 @@ Demo rows carry `demo_tag` and `.invalid` emails (the database enforces both). `
 - `npm run seed:load -- --mark-demo` builds the Octolab demo tree, staff, course, assignments and progress (flips a brand-new database to demo mode).
 - `npm run seed:purge` deletes everything the seed created.
 - `npm run admin:bootstrap -- --email x --name "Y" --supplier "Z"` creates the first real admin.
+- `npm run developer:set -- --email x` marks the platform developer (run on every deployment).
 - `npm run golive:check [-- --finish]` fails while any demo row exists; `--finish` switches the database to production.
 
 Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABASE_SERVICE_ROLE_KEY`). Never paste the service role key into chat. `npm run login:link -- --email x@octolab-demo.invalid` prints a sign-in link for a demo user.
