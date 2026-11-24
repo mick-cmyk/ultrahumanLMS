@@ -15,3 +15,8 @@ LMS Build Out
 !.env.example
 exports
 supabase/.temp
+
+# Source videos kept locally (they live in Bunny)
+Content/
+*.mp4
+*.mov
