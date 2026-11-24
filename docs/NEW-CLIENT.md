@@ -90,7 +90,10 @@ Then `npm install` in that folder, create `.env.local` (below) and copy
 
 ## 5. Hosting (Vercel)
 
-1. In the client folder: `npx vercel link` and create a new project (name
+1. Once per computer, log the Vercel tool in: `npx vercel login`, then
+   `npx vercel whoami` to check (a newer Vercel tool version can need logging
+   in again; "Error: Not authorized" on deploy means this step).
+   In the client folder: `npx vercel link` and create a new project (name
    like `<id>training`). In its settings set Functions region to **Sydney
    (syd1)**.
 2. `npm run vercel:env` copies the settings from `.env.local` (keys go in as
