@@ -16,6 +16,18 @@ export type BrandConfig = {
   logoUrl: string | null;
   /** Optional square brand mark for the public landing page. Site-relative is fine. */
   markUrl?: string | null;
+  /**
+   * A client deployment's front page. When set, logged-out visitors see a
+   * short welcome (logo, what this site is, log in) instead of the product
+   * pitch the demo uses.
+   */
+  welcome?: {
+    /** Wide logo for the top of the page. Site-relative is fine. */
+    logoUrl: string;
+    heading: string;
+    /** One or two short paragraphs explaining what the visitor has found. */
+    intro: string[];
+  };
   supportEmail: string | null;
   links: { website?: string; help?: string; privacy?: string; terms?: string };
   voice: {
