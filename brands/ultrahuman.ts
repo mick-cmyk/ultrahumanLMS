@@ -1,6 +1,6 @@
 import type { BrandConfig } from './types';
 
-// Ultrahuman deployment (ultrahumantraining.au). Colour is the deep blue from
+// Ultrahuman deployment (ultrahumantraining.com). Colour is the deep blue from
 // ultrahuman.com's palette: their black (#111111) disappears on the app's dark
 // theme, the blue works on both. Still to confirm with Ultrahuman: logo files,
 // a support address for training questions, and privacy/terms links that
