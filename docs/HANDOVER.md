@@ -77,6 +77,7 @@ Migration `20261126000100_messages.sql`, test `v2_messages.test.sql` (69 checks)
 
 Save points are git tags, pushed to the private GitHub copy (github.com/mick-cmyk/lmsdemopartytime, Tags). Numbering: `v2`, then `v2.1`, `v2.2` and so on for each save point, until Mick decides something is Version 3 (`v3`, then `v3.1`...).
 
+- **Version 2.1** (git tag `v2.1`, 24 Nov 2026). Database at migration `20261126000200_developer`. Developer access (the platform developer can't be demoted, deactivated or removed without their approval; `npm run developer:set` on every deployment, enforced by `golive:check`), a Download SCORM button at the top of each course page, and `golive:check` running again.
 - **Version 2** (git tag `v2`, 24 Nov 2026). Live on lms.octolab.com.au; database at migration `20261126000100_messages`. Since the first demo: Bunny videos and the course builder, add a person and self sign-up with approvers, "new course" emails on a send list, portrait video and optional watching, Next-lesson button, People list with Edit panels, SCORM download from the builder, Messages (updates, conversations, store-only lesson discussions), and editing, reordering and adding quiz questions. To look at it again: `git checkout v2` (then `git checkout main` to come back).
 
 ## Developer access (24 Nov 2026)
