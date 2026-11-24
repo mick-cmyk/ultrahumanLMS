@@ -77,7 +77,7 @@ export function slug(s: string): string {
 }
 
 export function buildManifest(course: ExportCourse, files: string[]): string {
-  const id = `octolab-${slug(course.title)}-${course.id.slice(0, 8)}`;
+  const id = `lms-${slug(course.title)}-${course.id.slice(0, 8)}`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="${xmlEsc(id)}" version="1.0"
   xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
