@@ -68,11 +68,7 @@ const sample = [
 // training works, and the login box. No sales pitch.
 function Welcome({ signupOpen, welcome }: { signupOpen: boolean; welcome: NonNullable<typeof brand.welcome> }) {
   const website = brand.links.website;
-  const how = [
-    { title: 'Watch', body: 'A short video on your phone, wherever suits you.' },
-    { title: 'Answer', body: 'A few quick questions straight after.' },
-    { title: 'Remember', body: `${RETEST_DELAY_DAYS} days later, a ${check} arrives by email to help it stick.` },
-  ];
+  const how = welcome.steps;
 
   return (
     <div className="mx-auto grid max-w-3xl gap-10 py-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start md:py-14">
@@ -105,15 +101,13 @@ function Welcome({ signupOpen, welcome }: { signupOpen: boolean; welcome: NonNul
       <div className="min-w-0">
         <div id="login" className="rounded-2xl border border-gray-200 bg-gray-50 p-6 shadow-sm">
           <LoginForm variant="card" signupOpen={signupOpen} />
-          <p className="mt-4 text-sm text-gray-500">
-            New here? Your manager adds you, then you can log in with your work email.
-          </p>
+          {welcome.newHere && <p className="mt-4 text-sm text-gray-500">{welcome.newHere}</p>}
         </div>
-        {website && (
+        {website && welcome.websitePrompt && (
           <p className="mt-4 text-sm text-gray-500">
-            Looking to buy?{' '}
+            {welcome.websitePrompt}{' '}
             <a href={website} className="font-medium text-brand-ink underline">
-              Visit {new URL(website).hostname.replace(/^www\./, '')}
+              {welcome.websiteLinkText}
             </a>
           </p>
         )}

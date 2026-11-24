@@ -27,6 +27,13 @@ export type BrandConfig = {
     heading: string;
     /** One or two short paragraphs explaining what the visitor has found. */
     intro: string[];
+    /** The numbered steps. */
+    steps: { title: string; body: string }[];
+    /** Line under the login box. */
+    newHere: string;
+    /** Line linking to links.website; empty prompt hides it. */
+    websitePrompt: string;
+    websiteLinkText: string;
   };
   supportEmail: string | null;
   links: { website?: string; help?: string; privacy?: string; terms?: string };
