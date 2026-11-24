@@ -39,7 +39,13 @@ export function TeamClient({ staff, places }: { staff: Staff[]; places: Place[] 
         setMsg(body.error ?? 'Could not add that person.');
         return;
       }
-      setMsg(body.created ? `Added ${name}.` : `${name} was already here, so they have been updated.`);
+      setMsg(
+        body.created
+          ? body.emailed
+            ? `Added ${name}. They've been sent an email saying how to log in.`
+            : `Added ${name}. The welcome email didn't send, so let them know to log in with their email address.`
+          : `${name} was already here, so they have been updated.`
+      );
       setEmail('');
       setName('');
       router.refresh();

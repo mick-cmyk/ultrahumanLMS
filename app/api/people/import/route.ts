@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { provisionUser, parseCsv } from '@/lib/provision';
+import { sendWelcomeBatch } from '@/lib/email';
 
 // CSV import for admins and managers. Columns: email, full_name, unit.
 // `unit` is the unit's name as it appears on the Structure page. If two units
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
   }
 
   const results: { email: string; ok: boolean; created?: boolean; error?: string }[] = [];
+  const newPeople: { email: string; name: string }[] = [];
 
   for (const r of rows) {
     const email = (r.email ?? '').trim();
@@ -79,13 +81,17 @@ export async function POST(request: Request) {
     try {
       const { created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
       results.push({ email, ok: true, created });
+      if (created) newPeople.push({ email, name: fullName });
     } catch (e) {
       results.push({ email, ok: false, error: e instanceof Error ? e.message : 'failed' });
     }
   }
 
+  // Welcome emails for brand-new logins only, in batches.
+  const emailed = await sendWelcomeBatch(newPeople);
+
   const created = results.filter((r) => r.ok && r.created).length;
   const updated = results.filter((r) => r.ok && !r.created).length;
   const failed = results.filter((r) => !r.ok);
-  return NextResponse.json({ created, updated, failed });
+  return NextResponse.json({ created, updated, failed, emailed });
 }

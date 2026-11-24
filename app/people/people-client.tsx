@@ -119,7 +119,13 @@ export function PeopleClient({
               .map((f: { email: string; error: string }) => `${f.email}: ${f.error}`)
               .join('; ')}).`
           : '';
-      setImportMsg(`Imported: ${body.created} created, ${body.updated} updated.${failedNote}`);
+      const emailNote =
+        body.created > 0
+          ? body.emailed === body.created
+            ? ' Each new person has been sent an email saying how to log in.'
+            : ` ${body.emailed ?? 0} of ${body.created} welcome emails sent. Let the others know to log in with their email address.`
+          : '';
+      setImportMsg(`Imported: ${body.created} created, ${body.updated} updated.${emailNote}${failedNote}`);
       setCsv('');
       router.refresh();
     } catch {
@@ -165,7 +171,9 @@ export function PeopleClient({
       }
       const name = addName.trim();
       let text = body.created
-        ? `${name} has been added. They can log in with their email address on the login page.`
+        ? body.emailed
+          ? `${name} has been added and sent an email saying how to log in.`
+          : `${name} has been added. The welcome email didn't send, so let them know to log in with their email address on the login page.`
         : `${name} already had a login, so they have been moved here and switched on. Their role hasn't changed.`;
       if (body.created && addRole !== 'learner') {
         const steps: Record<string, unknown>[] = [{ role: addRole }];

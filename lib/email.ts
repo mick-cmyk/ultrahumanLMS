@@ -73,17 +73,67 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
 }
 
 /** Sent to a new person once they're in (auto-approved or approved). */
-export async function sendWelcome(to: string, name: string) {
+// Also sent when an admin or manager adds someone (People, My team, CSV
+// import), but only for a brand-new login, never when an existing person is
+// moved or updated.
+function welcomeMessage(to: string, name: string) {
   const brand = getBrand();
+  const first = name.trim().split(/\s+/)[0] || 'there';
   const { html, text } = renderEmail({
-    heading: `You're in, ${name.split(' ')[0] || name}`,
+    heading: `You're in, ${first}`,
     paragraphs: [
-      `Your ${brand.name} training account is ready.`,
+      `Your account for ${brand.name} is ready.`,
       'To log in, open the training site and enter this email address. We will email you a link to tap. There is no password.',
     ],
     button: { label: 'Go to your training', url: `${appUrl()}/login` },
   });
-  return sendEmail({ to, subject: `Your ${brand.name} training account is ready`, html, text });
+  return { to: to.trim(), subject: `Your ${brand.name} account is ready`, html, text };
+}
+
+export async function sendWelcome(to: string, name: string) {
+  return sendEmail(welcomeMessage(to, name));
+}
+
+/**
+ * Welcome emails for many new people at once (CSV import). Uses Resend's
+ * batch endpoint, 100 per call, so a big import doesn't trip the per-second
+ * limit. Returns how many were sent (or logged, in a dry run).
+ */
+export async function sendWelcomeBatch(people: { email: string; name: string }[]): Promise<number> {
+  const messages = people.map((p) => welcomeMessage(p.email, p.name)).filter((m) => m.to && !/\.invalid$/i.test(m.to));
+  if (messages.length === 0) return 0;
+  const key = process.env.RESEND_API_KEY;
+  const brand = getBrand();
+  const from = process.env.EMAIL_FROM || `${brand.emailFromName ?? brand.name} <onboarding@resend.dev>`;
+  if (!key || process.env.EMAIL_DRY_RUN === '1') {
+    for (const m of messages) console.log(`[email dry run] to=${m.to} subject=${m.subject}`);
+    return messages.length;
+  }
+  let sent = 0;
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          chunk.map((m) => ({
+            from,
+            to: [m.to],
+            subject: m.subject,
+            html: m.html,
+            text: m.text,
+            ...(process.env.EMAIL_REPLY_TO ? { reply_to: process.env.EMAIL_REPLY_TO } : {}),
+          }))
+        ),
+      });
+      if (res.ok) sent += chunk.length;
+      else console.error(`[email] Resend refused a welcome batch (${res.status})`);
+    } catch (e) {
+      console.error('[email] welcome batch failed', e instanceof Error ? e.message : e);
+    }
+  }
+  return sent;
 }
 
 /** Sent to each approver for the place a request is for. */

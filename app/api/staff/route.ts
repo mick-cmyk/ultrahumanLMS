@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { provisionUser } from '@/lib/provision';
+import { sendWelcome } from '@/lib/email';
 
 // Self-serve staff management for managers (and admins).
 //   action 'add'        { email, full_name, unit_id }  add or move a person
@@ -56,7 +57,9 @@ export async function POST(request: Request) {
 
     try {
       const { id, created } = await provisionUser({ email, full_name: fullName, unit_id: unitId });
-      return NextResponse.json({ ok: true, id, created });
+      // Only a brand-new login gets the welcome email; moving someone doesn't.
+      const emailed = created ? await sendWelcome(email, fullName) : false;
+      return NextResponse.json({ ok: true, id, created, emailed });
     } catch (e) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : 'Could not add that person' },
