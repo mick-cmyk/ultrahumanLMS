@@ -69,7 +69,9 @@ Then `npm install` in that folder, create `.env.local` (below) and copy
 2. Project Settings, API keys: copy the publishable and secret keys into
    `.env.local`.
 3. Account, Access tokens: make a token limited to this project with **Project
-   Settings: read-write** and **Application services: read-write**. Put it in
+   Settings: read-write**, **Application services: read-write** and **Database:
+   read-write** (without Database, `client:update` can't reach the database on
+   an IPv4-only network and stops with "IPv6 is not supported"). Put it in
    `.env.local` as `SUPABASE_ACCESS_TOKEN`. Keep it while you look after the
    site (updates need it); replace it if it leaks.
 4. In the client folder:
