@@ -45,7 +45,7 @@ In `.env.local` set `RESEND_API_KEY`, `EMAIL_FROM` (e.g.
 npm run email:preview
 ```
 
-Writes `LMS Build Out/email-previews/*.html` to look at.
+Writes `email-previews/*.html` to look at.
 
 ```bash
 npm run email:send -- you@yourdomain.com

@@ -15,6 +15,7 @@ supabase/.temp/
 supabase/.branches/
 
 # generated
+email-previews/
 LMS Build Out/email-previews/
 
 # local tool state
@@ -32,3 +33,10 @@ Thumbs.db
 
 # SCORM exports (npm run scorm:export)
 exports/
+
+# old build leftovers, kept on Mick's machine only
+files/
+files.zip
+filesv2.zip
+P1xel-Forge-*.pdf
+LMS Build Out/

@@ -87,7 +87,7 @@ const samples = [
 const to = process.argv[2];
 
 async function main() {
-  const outDir = join(process.cwd(), 'LMS Build Out', 'email-previews');
+  const outDir = join(process.cwd(), 'email-previews');
   mkdirSync(outDir, { recursive: true });
 
   for (const s of samples) {
