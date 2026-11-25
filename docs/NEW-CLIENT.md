@@ -27,7 +27,11 @@ Throughout, `<id>` is the client's short name (for example `ultrahuman`) and
    colour, website link, sign-off, level labels and the `welcome` wording.
 2. Save their wide logo as `public/brand/<id>-logo.svg` (dark logo on a
    transparent background; the site turns it white in dark mode) and point
-   `welcome.logoUrl` at it.
+   `welcome.logoUrl` at it. A coloured logo would turn the wrong colour, so
+   also save their white version and set `welcome.logoDarkUrl` (see
+   `brands/electrolux.ts`). SVG or PNG both work.
+   To look at it: the `brand-preview-electrolux` entry in `.claude/launch.json`
+   shows how to run the dev server as another brand.
 3. Register it in `brands/index.ts`.
 4. `npm run typecheck`, commit, and mark a version:
    `npm run release:mark -- --version v2.x`.
