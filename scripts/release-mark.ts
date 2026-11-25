@@ -10,6 +10,7 @@
 // then take it with `npm run client:update -- --version v2.3` in their folder.
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { die, parseArgs } from './db';
 
 const sh = (cmd: string) => spawnSync(cmd, { shell: true, encoding: 'utf8' });
@@ -23,6 +24,12 @@ const { opts } = parseArgs(process.argv.slice(2));
 const version = opts.version ?? '';
 if (!/^v\d+(\.\d+){0,2}$/.test(version)) die('Usage: npm run release:mark -- --version v2.3 [--note "what changed"]');
 
+// Client folders have a CLAUDE.local.md and their own brand; releases are only
+// marked in the development folder.
+const brandId = process.env.NEXT_PUBLIC_BRAND ?? 'octolab';
+if (brandId !== 'octolab' || existsSync('CLAUDE.local.md')) {
+  die('This is a client folder. Mark releases in the development folder:\n  cd "C:\\Users\\mick\\LMS Build OUt"');
+}
 if (sh('git rev-parse --abbrev-ref HEAD').stdout.trim() !== 'main') die('Switch to main first.');
 const dirty = sh('git status --porcelain --untracked-files=no').stdout.trim();
 if (dirty) die(`Commit or put away these changes first:\n${dirty}`);
