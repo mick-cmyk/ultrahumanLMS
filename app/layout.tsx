@@ -29,6 +29,7 @@ const NAV: Record<Role, { href: string; label: string }[]> = {
     { href: '/reports', label: 'Reporting' },
   ],
   admin: [
+    { href: '/', label: 'My training' },
     { href: '/reports', label: 'Reporting' },
     { href: '/build', label: 'Courses' },
     { href: '/assign', label: 'Assign' },

@@ -23,7 +23,7 @@ export default async function MyTrainingPage() {
     ]);
     return <Landing signupOpen={(data as { open?: boolean } | null)?.open === true} savedWelcome={savedWelcome} />;
   }
-  // Admins and viewers have no personal training; send them to reporting.
+  // Viewers have no personal training; send them to reporting.
   if (homeFor(profile.role) !== '/') redirect(homeFor(profile.role));
 
   const supabase = await createClient();
@@ -38,6 +38,7 @@ export default async function MyTrainingPage() {
     supabase
       .from('courses')
       .select('id, title, description, modules(id, lessons(id))')
+      .eq('published', true)
       .order('title'),
     supabase
       .from('lesson_progress')
@@ -52,6 +53,16 @@ export default async function MyTrainingPage() {
   // visibly and let the error boundary offer a retry.
   const failure = coursesError ?? progressError ?? retestsError ?? dueError;
   if (failure) throw new Error(`Failed to load training: ${failure.message}`);
+
+  // Admins can read every course (for building), so keep only the published
+  // ones assigned to them. For everyone else the database already did this.
+  let myCourses = courses ?? [];
+  if (profile.role === 'admin' && myCourses.length > 0) {
+    const sees = await Promise.all(
+      myCourses.map((c) => supabase.rpc('user_sees_course', { p_course_id: c.id }).then((r) => r.data === true)),
+    );
+    myCourses = myCourses.filter((_, i) => sees[i]);
+  }
 
   const watched = new Set((progress ?? []).filter((p) => p.watched_at).map((p) => p.lesson_id));
   const retestByModule = new Map((retests ?? []).map((r) => [r.module_id, r.status]));
@@ -80,15 +91,26 @@ export default async function MyTrainingPage() {
         </Link>
       )}
 
-      {(courses ?? []).length === 0 && (
-        <p className="rounded border border-gray-200 p-4 text-gray-600">
-          Nothing assigned to you yet. When training is assigned, it&apos;ll
-          show up here.
-        </p>
+      {myCourses.length === 0 && (
+        <div className="space-y-2 rounded border border-gray-200 p-4 text-gray-600">
+          <p>
+            Nothing assigned to you yet. When training is assigned, it&apos;ll
+            show up here.
+          </p>
+          {profile.role === 'admin' && (
+            <p className="text-sm">
+              To do a course yourself, include yourself when you assign it on the{' '}
+              <Link href="/assign" className="underline">
+                Assign
+              </Link>{' '}
+              page (for example by adding your name, or your unit).
+            </p>
+          )}
+        </div>
       )}
 
       <ul className="space-y-4">
-        {(courses ?? []).map((course) => {
+        {myCourses.map((course) => {
           const lessonIds = course.modules.flatMap((m) => m.lessons.map((l) => l.id));
           const done = lessonIds.filter((id) => watched.has(id)).length;
           const pct = lessonIds.length === 0 ? 0 : Math.round((done / lessonIds.length) * 100);

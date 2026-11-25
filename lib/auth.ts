@@ -41,7 +41,8 @@ export async function requireRole(roles: Role[]): Promise<Profile> {
   return profile;
 }
 
-// Where each role lands. Roles with no personal training go to reporting.
+// Where each role lands. Viewers have no personal training, so they go to
+// reporting. Admins land on My training like everyone else (their own courses).
 export function homeFor(role: Role): string {
-  return role === 'admin' || role === 'viewer' ? '/reports' : '/';
+  return role === 'viewer' ? '/reports' : '/';
 }
