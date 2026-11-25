@@ -4,7 +4,7 @@ Status of the v2 rebuild: brand-agnostic training LMS on a single unit tree. Old
 
 ## Where things stand
 
-- **Live app:** https://lms.octolab.com.au (Vercel project `kenshu-lms`, Next.js 16.4.6). Public landing page at `/` with a login card; logged-out pages redirect to `/login`. The old `lms.kenshu.com.au` alias still points at the same deployment.
+- **Live app:** https://lms.octolab.com.au (Vercel project `kenshu-lms`, Next.js 16.4.6). Public landing page at `/` with a login card; logged-out pages redirect to `/login`. The old `lms.kenshu.com.au` and `kenshu-lms.vercel.app` addresses redirect (308) to it since 25 Nov 2026.
 - **Database:** LMS Demo V1 (`nfghpuwtdokoleobjekq`), Pro org of Supabase login **test@mickrussell.com**. In `demo` mode. All 16 migration records match `supabase/migrations/` (drift repaired 19 Nov; re-check with `scripts/schema-fingerprint.sql`). The MCP `apply_migration` stamps its own version, so renumber the record to the file's version straight after.
 - **Brand:** `brands/octolab.ts`. Orange `#ED4E05`, octopus logo at `public/brand/octolab-logo.png` (emails use the absolute `https://lms.octolab.com.au/brand/octolab-logo.png`), support email `support@octolab.com.au` (Mick setting up the mailbox or a catch-all), sender name `LMS Demo by Octolab`. Level labels are general: Head office, Division, State or region, Site or depot, Team.
 - **Email is live.** Resend domain `mail.octolab.com.au`, sender `training@mail.octolab.com.au`. Supabase Auth sends magic links through Resend SMTP with the regenerated hosted template (subject "Your LMS Demo by Octolab"). Edge function secrets and both hourly cron jobs set by `npm run email:setup -- --live`. Details in `docs/EMAIL-SETUP.md`.
@@ -93,7 +93,7 @@ Limits: anyone with the Supabase project's own dashboard or database password ca
 1. **Videos.** The demo lessons reuse the four old sample clips (narration is about retail add-on selling). Needs real safety footage on Bunny, or neutral placeholders, before showing anyone. Bunny captions need turning on per video; the sample clips have no `<track>`.
 2. **Mick:** send a magic link to his own address on the live site and check it arrives, looks right and isn't in spam.
 3. **Mick:** make sure `support@octolab.com.au` actually receives mail.
-4. **Retire `lms.kenshu.com.au`:** redirect it to `lms.octolab.com.au`, then remove it from Supabase redirect URLs.
+4. **Retire `lms.kenshu.com.au`:** done 25 Nov 2026 (308 redirect to `lms.octolab.com.au`, removed from Supabase redirect URLs). Later, remove the domain from Vercel and its DNS record once nobody uses it.
 5. **SCORM by hand:** (export checked by Mick in an online SCORM viewer, 24 Nov 2026: works. Still to do: the import side.) import a package on `/import` as an admin, preview, assign, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one.
 6. Brand field still to confirm with Mick: `voice.emailSignoff`.
 7. UltraHuman: new Supabase project (Sydney region) and Vercel project, plus a real `brands/ultrahuman.ts`.
