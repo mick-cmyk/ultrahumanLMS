@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { NotSaved, useUnsavedWarning } from '@/lib/unsaved';
 import { useRouter } from 'next/navigation';
 
 export type ScheduleRow = {
@@ -24,6 +25,8 @@ export function EmailSchedule({ rows, hourlyLimit }: { rows: ScheduleRow[]; hour
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [limit, setLimit] = useState(String(hourlyLimit));
+  const limitDirty = Number(limit) !== hourlyLimit;
+  useUnsavedWarning(limitDirty);
 
   async function call(body: Record<string, unknown>, ok: string) {
     setBusy(true);
@@ -130,7 +133,8 @@ export function EmailSchedule({ rows, hourlyLimit }: { rows: ScheduleRow[]; hour
         >
           Save
         </button>
-        {msg && (
+        <NotSaved dirty={limitDirty} />
+        {msg && !limitDirty && (
           <p role="status" className={`text-sm ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>
             {msg.text}
           </p>

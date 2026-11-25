@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { courseApi, download, formatDuration, parseDuration } from '../api';
 import { SendToManager } from './check/send-to-manager';
+import { NotSaved, useUnsavedWarning } from '@/lib/unsaved';
 import { ScormExport } from './scorm-export';
 import {
   ANSWER_LETTERS,
@@ -64,8 +65,9 @@ function useSave() {
   return { busy, msg, setMsg, save };
 }
 
-function Msg({ msg }: { msg: { kind: 'ok' | 'error' | 'note'; text: string } | null }) {
-  if (!msg) return null;
+function Msg({ msg, dirty = false }: { msg: { kind: 'ok' | 'error' | 'note'; text: string } | null; dirty?: boolean }) {
+  // A "Saved." from before is out of date once there are new unsaved edits.
+  if (!msg || (dirty && msg.kind === 'ok')) return null;
   const style =
     msg.kind === 'error' ? 'text-red-700' : msg.kind === 'note' ? 'text-amber-800' : 'text-green-800';
   return (
@@ -103,6 +105,9 @@ function CourseDetails({ course }: { course: Course }) {
   const [description, setDescription] = useState(course.description ?? '');
   const [requireWatch, setRequireWatch] = useState(course.require_watch);
   const { busy, msg, save } = useSave();
+  const watch = useSave();
+  const dirty = title !== course.title || description !== (course.description ?? '');
+  useUnsavedWarning(dirty);
   return (
     <section className="space-y-3 rounded border border-gray-200 p-4">
       <h2 className="font-semibold">Course details</h2>
@@ -120,28 +125,33 @@ function CourseDetails({ course }: { course: Course }) {
           type="checkbox"
           className="mt-1 h-4 w-4"
           checked={requireWatch}
-          onChange={(e) => setRequireWatch(e.target.checked)}
+          disabled={watch.busy}
+          onChange={async (e) => {
+            // Saves straight away, like every tick box.
+            const next = e.target.checked;
+            if (await watch.save({ action: 'course.update', id: course.id, require_watch: next })) setRequireWatch(next);
+          }}
         />
         <span>
           <span className="block text-sm font-medium">Staff must watch each video before its quiz</span>
           <span className="block text-sm text-gray-600">
             Ticked: the quiz opens once they&apos;ve watched 90% of the video. Not ticked: the video is optional and the
-            quiz is open straight away.
+            quiz is open straight away. Saves as soon as you tick or untick it.
           </span>
+          <Msg msg={watch.msg} />
         </span>
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !dirty}
           className={primary}
-          onClick={() =>
-            save({ action: 'course.update', id: course.id, title, description, require_watch: requireWatch })
-          }
+          onClick={() => save({ action: 'course.update', id: course.id, title, description })}
         >
           Save details
         </button>
-        <Msg msg={msg} />
+        <NotSaved dirty={dirty} />
+        <Msg msg={msg} dirty={dirty} />
       </div>
     </section>
   );
@@ -221,6 +231,8 @@ function ModuleCard({
 }) {
   const [title, setTitle] = useState(module.title);
   const [intro, setIntro] = useState(module.intro ?? '');
+  const moduleDirty = title !== module.title || intro !== (module.intro ?? '');
+  useUnsavedWarning(moduleDirty);
   const [newLesson, setNewLesson] = useState('');
   const details = useSave();
   const lessonAdd = useSave();
@@ -261,11 +273,12 @@ function ModuleCard({
         <textarea value={intro} onChange={(e) => setIntro(e.target.value)} rows={3} className={input} />
       </label>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" disabled={details.busy} className={primary}
+        <button type="button" disabled={details.busy || !moduleDirty} className={primary}
           onClick={() => details.save({ action: 'module.update', id: module.id, title, intro })}>
           Save module
         </button>
-        <Msg msg={details.msg} />
+        <NotSaved dirty={moduleDirty} />
+        <Msg msg={details.msg} dirty={moduleDirty} />
       </div>
 
       <div className="space-y-3">
@@ -328,6 +341,12 @@ function LessonCard({
   const [duration, setDuration] = useState(formatDuration(lesson.duration_seconds));
   const [script, setScript] = useState(lesson.script ?? '');
   const s = useSave();
+  const lessonDirty =
+    title !== lesson.title ||
+    video !== (lesson.bunny_video_id ?? '') ||
+    duration !== formatDuration(lesson.duration_seconds) ||
+    script !== (lesson.script ?? '');
+  useUnsavedWarning(lessonDirty);
   const qCount = lesson.quiz?.questions.length ?? 0;
   const isScorm = lesson.kind === 'scorm';
 
@@ -343,6 +362,10 @@ function LessonCard({
     if (secs !== null || !video.trim()) body.duration_seconds = secs;
     const res = await s.save(body);
     if (res && typeof res.duration_seconds === 'number') setDuration(formatDuration(res.duration_seconds));
+    // A pasted embed link is stored as just the video's ID; show that, so the
+    // form doesn't look unsaved.
+    const id = res ? video.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] : undefined;
+    if (id) setVideo(id.toLowerCase());
   }
 
   const status = isScorm
@@ -438,10 +461,11 @@ function LessonCard({
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled={s.busy} className={primary} onClick={saveLesson}>
+            <button type="button" disabled={s.busy || !lessonDirty} className={primary} onClick={saveLesson}>
               {s.busy ? 'Saving…' : 'Save lesson'}
             </button>
-            <Msg msg={s.msg} />
+            <NotSaved dirty={lessonDirty} />
+            <Msg msg={s.msg} dirty={lessonDirty} />
           </div>
 
           <BeforeVideo key={`exp-${lesson.expectancy ?? ''}`} lesson={lesson} />
@@ -637,7 +661,21 @@ function Questions({ lesson }: { lesson: Lesson }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Pass mark</span>
-          <select value={passMark} onChange={(e) => setPassMark(Number(e.target.value))} className={input}>
+          <select
+            value={passMark}
+            disabled={s.busy}
+            onChange={async (e) => {
+              const next = Number(e.target.value);
+              setPassMark(next);
+              // With questions already saved, a new pass mark saves straight
+              // away. With an upload waiting, it goes with "Save these questions".
+              if (!pending && current.length > 0) {
+                const ok = await s.save({ action: 'quiz.set', lesson_id: lesson.id, questions: current, pass_mark: next }, 'Pass mark saved.');
+                if (!ok) setPassMark(lesson.quiz?.pass_mark ?? next);
+              }
+            }}
+            className={input}
+          >
             {[0.6, 0.7, 0.8, 0.9, 1].map((p) => (
               <option key={p} value={p}>
                 {Math.round(p * 100)}%
@@ -662,10 +700,6 @@ function Questions({ lesson }: { lesson: Lesson }) {
         )}
         {!pending && current.length > 0 && (
           <>
-            <button type="button" disabled={s.busy || passMark === lesson.quiz?.pass_mark} className={btn}
-              onClick={() => s.save({ action: 'quiz.set', lesson_id: lesson.id, questions: current, pass_mark: passMark }, 'Pass mark saved.')}>
-              Save pass mark
-            </button>
             <button type="button" disabled={s.busy} className={`${btn} text-red-700`}
               onClick={() => {
                 if (confirm('Remove all questions from this lesson?')) {
@@ -824,6 +858,12 @@ function QuestionForm({
   const [explanation, setExplanation] = useState(initial.explanation ?? '');
   const [error, setError] = useState('');
   const group = `correct-${initial.id}`;
+  const dirty =
+    text !== initial.text ||
+    correct !== initial.correct_index ||
+    explanation !== (initial.explanation ?? '') ||
+    JSON.stringify(options) !== JSON.stringify(initial.options);
+  useUnsavedWarning(dirty);
 
   function moveOption(from: number, to: number) {
     setOptions((o) => move(o, from, to));
@@ -936,6 +976,7 @@ function QuestionForm({
         <button type="button" className={btn} onClick={onCancel}>
           Cancel
         </button>
+        <NotSaved dirty={dirty} />
       </div>
     </form>
   );
@@ -945,6 +986,8 @@ function QuestionForm({
 function BeforeVideo({ lesson }: { lesson: Lesson }) {
   const [text, setText] = useState(lesson.expectancy ?? '');
   const s = useSave();
+  const dirty = text !== (lesson.expectancy ?? '');
+  useUnsavedWarning(dirty);
   return (
     <div className="space-y-2">
       <label className="block">
@@ -960,7 +1003,8 @@ function BeforeVideo({ lesson }: { lesson: Lesson }) {
           onClick={() => s.save({ action: 'lesson.update', id: lesson.id, expectancy: text }, 'Saved.')}>
           Save sentence
         </button>
-        <Msg msg={s.msg} />
+        <NotSaved dirty={dirty} />
+        <Msg msg={s.msg} dirty={dirty} />
       </div>
     </div>
   );

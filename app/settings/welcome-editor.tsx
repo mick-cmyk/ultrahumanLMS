@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Welcome } from '@/components/welcome';
 import { WELCOME_LIMITS as L, welcomeProblem, type WelcomeText } from '@/lib/welcome';
+import { NotSaved, useUnsavedWarning } from '@/lib/unsaved';
 
 const input = 'w-full rounded border border-gray-300 bg-surface px-3 py-2';
 const btn = 'min-h-11 rounded border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50';
@@ -32,6 +33,7 @@ export function WelcomeEditor({
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
   const dirty = JSON.stringify(w) !== JSON.stringify(initial);
+  useUnsavedWarning(dirty);
 
   const set = (patch: Partial<WelcomeText>) => {
     setW((cur) => ({ ...cur, ...patch }));
@@ -192,6 +194,7 @@ export function WelcomeEditor({
         <button type="button" className={primary} disabled={busy || !dirty} onClick={save}>
           Save changes
         </button>
+        <NotSaved dirty={dirty} />
         {dirty && (
           <button type="button" className={btn} disabled={busy} onClick={() => { setW(initial); setError(''); }}>
             Undo my edits
