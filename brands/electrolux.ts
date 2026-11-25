@@ -38,9 +38,12 @@ const electrolux: BrandConfig = {
   },
   levelLabels: {
     supplier: 'Electrolux',
-    brand: 'Retail brand',
-    region: 'Training manager or state rep',
-    store: 'Store',
+    // Electrolux runs its own training chain rather than retail brands and
+    // stores: Training Manager > Training Team > Brand Rep, learners under
+    // their rep (set up 25 Nov 2026).
+    brand: 'Training Manager',
+    region: 'Training Team',
+    store: 'Brand Rep',
     team: 'Team',
   },
   emailFromName: 'Electrolux Training',
