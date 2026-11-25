@@ -4,10 +4,11 @@
 
 import octolab from './octolab';
 import ultrahuman from './ultrahuman';
+import electrolux from './electrolux';
 import { deriveTokens, isHex6, type BrandTokens } from './colour';
 import type { BrandConfig } from './types';
 
-const BRANDS: Record<string, BrandConfig> = { octolab, ultrahuman };
+const BRANDS: Record<string, BrandConfig> = { octolab, ultrahuman, electrolux };
 
 export function getBrand(id: string | undefined = process.env.NEXT_PUBLIC_BRAND): BrandConfig {
   const key = id || 'octolab';

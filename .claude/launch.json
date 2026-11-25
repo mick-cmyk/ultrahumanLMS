@@ -4,19 +4,41 @@
     {
       "name": "lms-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "brand-preview-electrolux",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.NEXT_PUBLIC_BRAND='electrolux';require('child_process').spawn('npm',['run','dev','--','-p','3003'],{stdio:'inherit',shell:true})"
+      ],
+      "port": 3003
     },
     {
       "name": "ultrahuman-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "C:\\Users\\mick\\UltraHuman LMS", "run", "dev", "--", "-p", "3001"],
+      "runtimeArgs": [
+        "--prefix",
+        "C:\\Users\\mick\\UltraHuman LMS",
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3001"
+      ],
       "port": 3001
     },
     {
       "name": "playlist-ripper",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["C:\\Users\\mick\\Music\\playlist-rips\\server.js"],
+      "runtimeArgs": [
+        "C:\\Users\\mick\\Music\\playlist-rips\\server.js"
+      ],
       "port": 3111
     }
   ]

@@ -39,8 +39,13 @@ export type BrandConfig = {
    * pitch the demo uses.
    */
   welcome?: WelcomeText & {
-    /** Wide logo for the top of the page. Site-relative is fine. */
+    /** Wide logo for the top of the page and the header. Site-relative is fine. */
     logoUrl: string;
+    /**
+     * Optional version for the dark theme (for example a white logo). Without
+     * it the logo above is inverted, which only suits black logos.
+     */
+    logoDarkUrl?: string;
   };
   supportEmail: string | null;
   links: { website?: string; help?: string; privacy?: string; terms?: string };

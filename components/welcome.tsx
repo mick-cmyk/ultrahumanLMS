@@ -1,4 +1,5 @@
 import { Bricolage_Grotesque } from 'next/font/google';
+import { BrandLogo } from '@/components/brand-logo';
 import { getBrand } from '@/brands';
 import type { WelcomeText } from '@/lib/welcome';
 import { LoginForm } from '@/components/login-form';
@@ -28,8 +29,7 @@ export function Welcome({
     <div className="mx-auto grid max-w-3xl gap-10 py-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start md:py-14">
       <div className="min-w-0">
         {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt={brand.name} className="h-6 w-auto max-w-full dark:invert md:h-7" />
+          <BrandLogo src={logoUrl} className="h-6 w-auto max-w-full md:h-7" />
         ) : (
           <p className={`${display.className} text-xl font-extrabold`}>{brand.name}</p>
         )}

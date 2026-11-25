@@ -5,6 +5,7 @@ import { getProfile, type Role } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getBrand, getBrandTokens } from '@/brands';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { BrandLogo } from '@/components/brand-logo';
 import { THEME_COOKIE } from '@/lib/theme';
 import './globals.css';
 
@@ -85,8 +86,7 @@ export default async function RootLayout({
               {brand.welcome?.logoUrl ? (
                 // A client's wide logo (the same one as the welcome page), on every page.
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={brand.welcome.logoUrl} alt={brand.name} className="h-4 w-auto max-w-[180px] dark:invert sm:h-5" />
+                  <BrandLogo src={brand.welcome.logoUrl} className="h-4 w-auto max-w-[180px] sm:h-5" />
                   <span className="text-sm font-medium text-gray-600">Training</span>
                 </>
               ) : brand.logoUrl ? (
