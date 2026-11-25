@@ -26,7 +26,8 @@
     "auth:setup": "tsx --env-file=.env.local scripts/auth-setup.ts",
     "vercel:env": "tsx --env-file=.env.local scripts/vercel-env.ts",
     "release:mark": "tsx --env-file-if-exists=.env.local scripts/release-mark.ts",
-    "client:update": "tsx --env-file=.env.local scripts/client-update.ts"
+    "client:update": "tsx --env-file=.env.local scripts/client-update.ts",
+    "functions:key": "tsx --env-file=.env.local scripts/functions-key.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

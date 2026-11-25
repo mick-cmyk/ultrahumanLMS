@@ -96,6 +96,7 @@ Limits: anyone with the Supabase project's own dashboard or database password ca
 4. **Retire `lms.kenshu.com.au`:** done 25 Nov 2026 (308 redirect to `lms.octolab.com.au`, removed from Supabase redirect URLs). Later, remove the domain from Vercel and its DNS record once nobody uses it.
 5. **SCORM by hand:** (export checked by Mick in an online SCORM viewer, 24 Nov 2026: works. Still to do: the import side.) import a package on `/import` as an admin, preview, assign, take it as a learner, and run an exported zip (`npm run scorm:export -- --seed attach-selling`) through SCORM Cloud or Moodle before any customer gets one.
 6. Brand field still to confirm with Mick: `voice.emailSignoff`.
+6a. **Before 2027, old-style keys:** the demo's `.env.local` still has the old-style service role key. Create a secret key (Project Settings, API Keys), put it in `.env.local` as `SUPABASE_SERVICE_ROLE_KEY`, run `npm run vercel:env`, redeploy, then `npm run functions:key`. The email functions use `SB_SECRET_KEY` when set and fall back to the old key until then (`supabase/functions/_shared/key.ts`).
 7. UltraHuman: new Supabase project (Sydney region) and Vercel project, plus a real `brands/ultrahuman.ts`.
 
 ## SCORM (built 18 Nov 2026)

@@ -64,7 +64,8 @@ async function main() {
 
   console.log(`Project ${ref}, brand ${brand.id}, ${live ? 'LIVE sending' : 'DRY RUN (nothing is emailed)'}`);
   run(`npx supabase secrets set ${args.join(' ')} --project-ref ${ref}`);
-  run(`npx supabase functions deploy retest-dispatch weekly-digest course-notify --no-verify-jwt --use-api --project-ref ${ref}`);
+  // Deploys the functions and gives them the new-style secret key, if .env.local has one.
+  run('npm run -s functions:key');
 
   const db = adminClient();
   const result = await must(

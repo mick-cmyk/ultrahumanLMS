@@ -127,6 +127,9 @@ Then `npm install` in that folder, create `.env.local` (below) and copy
    ```powershell
    npm run email:setup -- --live
    ```
+   This also gives the email functions the secret key from `.env.local`
+   (`SB_SECRET_KEY`), so they never rely on Supabase's old-style key. To redo
+   just that step: `npm run functions:key`.
 6. `npm run vercel:env` again, then `npx vercel deploy --prod`.
 
 ## 7. Videos (Bunny Stream)

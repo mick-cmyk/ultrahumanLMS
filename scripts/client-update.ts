@@ -86,8 +86,8 @@ async function main() {
 
   // ---------------------------------------------------------- emails
   if (functionsChanged) {
-    run(`npx supabase functions deploy retest-dispatch weekly-digest course-notify --no-verify-jwt --use-api --project-ref ${ref}`,
-      'Redeploy the email functions (they changed)');
+    // Also gives the functions this site's new-style secret key, if .env.local has one.
+    run('npm run -s functions:key', 'Redeploy the email functions (they changed)');
   }
   if (emailLookChanged) run('npm run -s auth:setup -- --apply', 'Update the sign-in email (brand or template changed)');
 

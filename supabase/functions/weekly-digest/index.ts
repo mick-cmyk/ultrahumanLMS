@@ -12,6 +12,7 @@
 // Guarded by the CRON_SECRET header. Resend when RESEND_API_KEY is set, else logs.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { SERVICE_KEY } from '../_shared/key.ts';
 import {
   APP_URL,
   type EmailBlock,
@@ -24,7 +25,6 @@ import {
 } from '../_shared/email.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const EMAIL_FROM = fromAddress('DIGEST_EMAIL_FROM');
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
