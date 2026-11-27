@@ -42,7 +42,7 @@ Scripts read `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, publishable key, `SUPABAS
 
 ## Clients and releases
 
-This folder is for development and runs the Octolab demo. Each client has its own folder (a clone of its GitHub copy), with its own `.env.local`, Vercel link and `CLAUDE.local.md` notes, for example `C:\Users\mick\UltraHuman LMS`. Code changes are made and tested here, marked with `npm run release:mark -- --version vX.Y` (runs every check, tags, pushes to every remote), and reach a client only through `npm run client:update -- --version vX.Y` run in that client's folder. Never deploy a client from this folder or change code in a client folder. New client set-up: `docs/NEW-CLIENT.md` (uses `npm run auth:setup -- --apply` and `npm run vercel:env`).
+This folder is for development and runs the Octolab demo. Each client has its own folder (a clone of its GitHub copy), with its own `.env.local`, Vercel link and `CLAUDE.local.md` notes, currently `C:\Users\mick\UltraHuman LMS` (lms.ultrahumantraining.com) and `C:\Users\mick\Electrolux LMS` (lms.ehptraining.com.au). `release:mark` lists every client folder it finds next to this one, with the commands to update each. Code changes are made and tested here, marked with `npm run release:mark -- --version vX.Y` (runs every check, tags, pushes to every remote), and reach a client only through `npm run client:update -- --version vX.Y` run in that client's folder. Never deploy a client from this folder or change code in a client folder. New client set-up: `docs/NEW-CLIENT.md` (uses `npm run auth:setup -- --apply` and `npm run vercel:env`).
 
 ## Scheduled jobs
 
