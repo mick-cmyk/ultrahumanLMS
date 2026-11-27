@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Thumb } from '@/components/thumb';
 
 export type NextStep = {
   href: string;
@@ -8,6 +9,8 @@ export type NextStep = {
   title: string;
   /** Small heading above that line: "Up next" or "All done". */
   eyebrow: string;
+  /** Thumbnail of the next video, when there is one. */
+  image?: string | null;
 };
 
 // The big "go to the next one" button, with what comes next beside it. Used
@@ -21,6 +24,7 @@ export function NextButton({ next }: { next: NextStep }) {
       >
         {next.label} <span aria-hidden="true">&nbsp;&rarr;</span>
       </Link>
+      {next.image && <Thumb src={next.image} play className="hidden w-28 shrink-0 sm:block" />}
       <p className="min-w-0 text-sm">
         <span className="block text-xs font-medium uppercase tracking-wide opacity-75">{next.eyebrow}</span>
         <span className="block font-medium">{next.title}</span>

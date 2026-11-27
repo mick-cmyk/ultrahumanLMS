@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { NextButton, type NextStep } from './next-button';
+import { videoThumbnails } from '@/lib/thumbnails';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { signedEmbedUrl } from '@/lib/bunny';
@@ -59,7 +60,7 @@ export default async function LessonPage({
   // the course page.
   const { data: outline } = await supabase
     .from('modules')
-    .select('sort_order, lessons(id, title, kind, sort_order)')
+    .select('sort_order, lessons(id, title, kind, sort_order, bunny_video_id)')
     .eq('course_id', parentModule?.course_id ?? '');
   const ordered = (outline ?? [])
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -72,6 +73,9 @@ export default async function LessonPage({
         label: following.kind === 'video' ? 'Next video' : 'Next lesson',
         eyebrow: 'Up next',
         title: following.title,
+        image: following.bunny_video_id
+          ? ((await videoThumbnails()).get(following.bunny_video_id.toLowerCase()) ?? null)
+          : null,
       }
     : {
         href: `/courses/${parentModule?.course_id}`,

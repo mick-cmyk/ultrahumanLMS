@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { videoThumbnails } from '@/lib/thumbnails';
+import { Thumb } from '@/components/thumb';
 
 export default async function CoursePage({
   params,
@@ -17,7 +19,7 @@ export default async function CoursePage({
     supabase
       .from('courses')
       .select(
-        'id, title, description, modules(id, title, intro, sort_order, lessons(id, title, sort_order, duration_seconds))'
+        'id, title, description, modules(id, title, intro, sort_order, lessons(id, title, sort_order, duration_seconds, bunny_video_id))'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -33,6 +35,7 @@ export default async function CoursePage({
     (progress ?? []).filter((p) => p.watched_at).map((p) => p.lesson_id)
   );
 
+  const thumbs = await videoThumbnails();
   const modules = [...course.modules].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -60,7 +63,12 @@ export default async function CoursePage({
                     href={`/lessons/${lesson.id}`}
                     className="flex items-center justify-between gap-4 p-3 hover:bg-gray-50"
                   >
-                    <span className="underline">{lesson.title}</span>
+                    <span className="flex min-w-0 items-center gap-3">
+                      {lesson.bunny_video_id && (
+                        <Thumb src={thumbs.get(lesson.bunny_video_id.toLowerCase()) ?? null} play className="w-20 shrink-0 sm:w-28" />
+                      )}
+                      <span className="underline">{lesson.title}</span>
+                    </span>
                     <span className="shrink-0 text-sm text-gray-500">
                       {watched.has(lesson.id)
                         ? '✓ Watched'

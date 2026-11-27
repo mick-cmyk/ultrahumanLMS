@@ -6,6 +6,7 @@ import { courseApi, download, formatDuration, parseDuration } from '../api';
 import { SendToManager } from './check/send-to-manager';
 import { NotSaved, useUnsavedWarning } from '@/lib/unsaved';
 import { ScormExport } from './scorm-export';
+import { CourseCover, LessonThumbnail, Picture } from './pictures';
 import {
   ANSWER_LETTERS,
   MAX_QUESTIONS,
@@ -31,6 +32,12 @@ type Lesson = {
   draft: { note: string | null; created_at: string; questions?: QuizQuestion[]; pass_mark?: number } | null;
 };
 type Module = { id: string; title: string; intro: string | null; lessons: Lesson[] };
+/** Thumbnails (from Bunny) and the course cover, worked out on the server. */
+export type Pictures = {
+  cover: string | null;
+  fallback: string | null;
+  lessons: Record<string, { thumbnail: string | null; frames: string[] }>;
+};
 type Course = {
   id: string;
   title: string;
@@ -77,10 +84,10 @@ function Msg({ msg, dirty = false }: { msg: { kind: 'ok' | 'error' | 'note'; tex
   );
 }
 
-export function CourseEditor({ course, lookupAvailable }: { course: Course; lookupAvailable: boolean }) {
+export function CourseEditor({ course, pictures, lookupAvailable }: { course: Course; pictures: Pictures; lookupAvailable: boolean }) {
   return (
     <div className="space-y-8">
-      <CourseDetails course={course} />
+      <CourseDetails course={course} pictures={pictures} />
       {course.modules.map((m, i) => (
         <ModuleCard
           key={m.id}
@@ -90,6 +97,7 @@ export function CourseEditor({ course, lookupAvailable }: { course: Course; look
           number={i + 1}
           lookupAvailable={lookupAvailable}
           courseId={course.id}
+          pictures={pictures}
         />
       ))}
       <AddModule courseId={course.id} first={course.modules.length === 0} />
@@ -100,7 +108,7 @@ export function CourseEditor({ course, lookupAvailable }: { course: Course; look
 }
 
 // ------------------------------------------------------------------ course
-function CourseDetails({ course }: { course: Course }) {
+function CourseDetails({ course, pictures }: { course: Course; pictures: Pictures }) {
   const [title, setTitle] = useState(course.title);
   const [description, setDescription] = useState(course.description ?? '');
   const [requireWatch, setRequireWatch] = useState(course.require_watch);
@@ -153,6 +161,7 @@ function CourseDetails({ course }: { course: Course }) {
         <NotSaved dirty={dirty} />
         <Msg msg={msg} dirty={dirty} />
       </div>
+      <CourseCover courseId={course.id} cover={pictures.cover} fallback={pictures.fallback} />
     </section>
   );
 }
@@ -221,6 +230,7 @@ function ModuleCard({
   number,
   lookupAvailable,
   courseId,
+  pictures,
 }: {
   module: Module;
   first: boolean;
@@ -228,6 +238,7 @@ function ModuleCard({
   number: number;
   lookupAvailable: boolean;
   courseId: string;
+  pictures: Pictures;
 }) {
   const [title, setTitle] = useState(module.title);
   const [intro, setIntro] = useState(module.intro ?? '');
@@ -291,6 +302,7 @@ function ModuleCard({
             last={i === module.lessons.length - 1}
             lookupAvailable={lookupAvailable}
             courseId={courseId}
+            pictures={pictures.lessons[l.id] ?? null}
           />
         ))}
       </div>
@@ -327,9 +339,11 @@ function LessonCard({
   last,
   lookupAvailable,
   courseId,
+  pictures,
 }: {
   lesson: Lesson;
   courseId: string;
+  pictures: { thumbnail: string | null; frames: string[] } | null;
   number: number;
   first: boolean;
   last: boolean;
@@ -380,11 +394,14 @@ function LessonCard({
   return (
     <div className="rounded border border-gray-200">
       <div className="flex flex-wrap items-center justify-between gap-2 p-3">
-        <button type="button" className="min-h-11 text-left" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <button type="button" className="flex min-h-11 items-center gap-3 text-left" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {pictures?.thumbnail && <Picture src={pictures.thumbnail} className="hidden w-20 shrink-0 sm:block" />}
+          <span>
           <span className="font-medium underline">
             Lesson {number}: {lesson.title}
           </span>
           <span className="block text-sm text-gray-600">{status}</span>
+          </span>
         </button>
         <div className="flex gap-2">
           <button type="button" className={btn} aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -467,6 +484,13 @@ function LessonCard({
             <NotSaved dirty={lessonDirty} />
             <Msg msg={s.msg} dirty={lessonDirty} />
           </div>
+
+          <LessonThumbnail
+            lessonId={lesson.id}
+            hasVideo={Boolean(lesson.bunny_video_id)}
+            current={pictures?.thumbnail ?? null}
+            frames={pictures?.frames ?? []}
+          />
 
           <BeforeVideo key={`exp-${lesson.expectancy ?? ''}`} lesson={lesson} />
 

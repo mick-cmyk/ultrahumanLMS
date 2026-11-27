@@ -6,6 +6,8 @@ import { BrandBand } from '@/components/brand-band';
 import { RETEST_MAX_CYCLES } from '@/lib/constants';
 import { getBrand } from '@/brands';
 import { Landing } from '@/components/landing';
+import { Thumb } from '@/components/thumb';
+import { coverUrl, videoThumbnails } from '@/lib/thumbnails';
 
 const check = getBrand().voice.checkName;
 
@@ -37,7 +39,7 @@ export default async function MyTrainingPage() {
   ] = await Promise.all([
     supabase
       .from('courses')
-      .select('id, title, description, modules(id, lessons(id))')
+      .select('id, title, description, cover_path, modules(id, sort_order, lessons(id, sort_order, bunny_video_id))')
       .eq('published', true)
       .order('title'),
     supabase
@@ -63,6 +65,18 @@ export default async function MyTrainingPage() {
     );
     myCourses = myCourses.filter((_, i) => sees[i]);
   }
+
+  // Each card's picture: the course cover, or the first video's thumbnail.
+  const thumbs = myCourses.length > 0 ? await videoThumbnails() : new Map<string, string>();
+  const pictureFor = (course: (typeof myCourses)[number]): string | null => {
+    const own = coverUrl(course.cover_path);
+    if (own) return own;
+    const first = [...course.modules]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .flatMap((m) => [...m.lessons].sort((a, b) => a.sort_order - b.sort_order))
+      .find((l) => l.bunny_video_id);
+    return first?.bunny_video_id ? (thumbs.get(first.bunny_video_id.toLowerCase()) ?? null) : null;
+  };
 
   const watched = new Set((progress ?? []).filter((p) => p.watched_at).map((p) => p.lesson_id));
   const retestByModule = new Map((retests ?? []).map((r) => [r.module_id, r.status]));
@@ -120,9 +134,12 @@ export default async function MyTrainingPage() {
           const allVerified =
             course.modules.length > 0 && moduleStatuses.every((s) => s === 'passed');
 
+          const picture = pictureFor(course);
           return (
             <li key={course.id} className="rounded border border-gray-200 p-4">
-              <Link href={`/courses/${course.id}`} className="block space-y-2">
+              <Link href={`/courses/${course.id}`} className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                {picture && <Thumb src={picture} className="w-full shrink-0 sm:w-44" />}
+                <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="font-medium underline">{course.title}</span>
                   <span className="shrink-0 text-sm text-gray-500">
@@ -145,6 +162,7 @@ export default async function MyTrainingPage() {
                     Your {check} is on its way. Check your email.
                   </span>
                 )}
+                </div>
               </Link>
             </li>
           );

@@ -4,7 +4,8 @@ import { requireRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { loadCourseTree } from '@/lib/course-tree';
 import { bunnyConfigured } from '@/lib/bunny';
-import { CourseEditor } from './course-editor';
+import { CourseEditor, type Pictures } from './course-editor';
+import { coverUrl, videoFrames, videoThumbnails } from '@/lib/thumbnails';
 
 export const metadata = { title: 'Edit course' };
 
@@ -14,6 +15,19 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
   const supabase = await createClient();
   const tree = await loadCourseTree(supabase, id);
   if (!tree) notFound();
+
+  // Pictures: video thumbnails from Bunny, the course cover from storage.
+  const thumbs = await videoThumbnails();
+  const videoLessons = tree.modules.flatMap((m) => m.lessons).filter((l) => l.bunny_video_id);
+  const lessons: Pictures['lessons'] = {};
+  await Promise.all(
+    videoLessons.map(async (l) => {
+      const v = l.bunny_video_id!.toLowerCase();
+      lessons[l.id] = { thumbnail: thumbs.get(v) ?? null, frames: await videoFrames(v) };
+    })
+  );
+  const firstThumb = videoLessons.map((l) => lessons[l.id]?.thumbnail).find(Boolean) ?? null;
+  const pictures: Pictures = { cover: coverUrl(tree.cover_path), fallback: firstThumb, lessons };
 
   return (
     <div className="space-y-6">
@@ -52,7 +66,7 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
           the course. Ask your developer to add the Bunny library settings before publishing.
         </p>
       )}
-      <CourseEditor course={tree} lookupAvailable={Boolean(process.env.BUNNY_STREAM_API_KEY)} />
+      <CourseEditor course={tree} pictures={pictures} lookupAvailable={Boolean(process.env.BUNNY_STREAM_API_KEY)} />
     </div>
   );
 }
