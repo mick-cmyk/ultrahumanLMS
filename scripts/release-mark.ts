@@ -10,7 +10,8 @@
 // then take it with `npm run client:update -- --version v2.3` in their folder.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { die, parseArgs } from './db';
 
 const sh = (cmd: string) => spawnSync(cmd, { shell: true, encoding: 'utf8' });
@@ -48,4 +49,32 @@ for (const remote of remotes) {
   run(`git push -q ${remote} main ${version}`, `Push main and ${version} to ${remote}`);
 }
 console.log(`\n${label} is marked and on GitHub (${remotes.join(', ')}).`);
-console.log(`To put it on a client site, in that client's folder run:\n  npm run client:update -- --version ${version}\n`);
+
+// Every client site that takes these releases: folders next to this one with a
+// CLAUDE.local.md, cloned from one of this folder's GitHub copies.
+const clean = (url: string) => url.trim().replace(/\.git$/, '').toLowerCase();
+const urls = new Set(remotes.map((r) => clean(sh(`git remote get-url ${r}`).stdout)));
+const here = resolve('.');
+const clients: { folder: string; site: string; on: string }[] = [];
+for (const name of readdirSync(dirname(here))) {
+  const folder = join(dirname(here), name);
+  if (folder === here || !existsSync(join(folder, 'CLAUDE.local.md')) || !existsSync(join(folder, '.git'))) continue;
+  if (!urls.has(clean(sh(`git -C "${folder}" remote get-url origin`).stdout))) continue;
+  // The last line of releases.log: "<when>  <from> -> <to>  <site>".
+  const log = join(folder, 'releases.log');
+  const last = existsSync(log) ? (readFileSync(log, 'utf8').trim().split(/\r?\n/).pop() ?? '') : '';
+  const m = last.match(/->\s+(\S+)\s+(\S+)/);
+  clients.push({ folder, site: m?.[2] ?? '(not deployed yet)', on: m?.[1] ?? '?' });
+}
+
+if (clients.length === 0) {
+  console.log(`To put it on a client site, in that client's folder run:\n  npm run client:update -- --version ${version}\n`);
+} else {
+  console.log('\nNow update each client site, one at a time, in its own folder:');
+  for (const c of clients) {
+    console.log(`\n  ${c.site}  (now on ${c.on})`);
+    console.log(`    cd "${c.folder}"`);
+    console.log(`    npm run client:update -- --version ${version}`);
+  }
+  console.log(`\nThen come back here:\n    cd "${here}"\n`);
+}
