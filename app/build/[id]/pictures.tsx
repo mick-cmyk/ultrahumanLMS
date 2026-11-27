@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { resizeTo16x9 } from '@/lib/resize-image';
+import { resizeToAspect } from '@/lib/resize-image';
+import { FitImage } from '@/components/thumb';
 
 // Pictures in the course builder: a lesson's video thumbnail (kept in Bunny,
 // with the video) and a course's cover picture. Both save straight away.
@@ -32,8 +33,11 @@ export function Picture({ src, alt = '', className = '' }: { src: string | null;
       </div>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(src)} className={`aspect-video rounded bg-gray-100 object-cover ${className}`} />;
+  return (
+    <span className={`relative block aspect-video overflow-hidden rounded bg-gray-100 ${className}`}>
+      <FitImage src={src} alt={alt} onFail={() => setFailed(src)} />
+    </span>
+  );
 }
 
 function useUpload() {
@@ -71,11 +75,14 @@ export function LessonThumbnail({
   hasVideo,
   current,
   frames,
+  aspect,
 }: {
   lessonId: string;
   hasVideo: boolean;
   current: string | null;
   frames: string[];
+  /** The video's width / height from Bunny (below 1 for upright phone videos). */
+  aspect: number | null;
 }) {
   const file = useRef<HTMLInputElement>(null);
   const [picking, setPicking] = useState(false);
@@ -118,7 +125,9 @@ export function LessonThumbnail({
               e.target.value = '';
               if (!f) return;
               run(async () => {
-                const small = await resizeTo16x9(f, { width: 1280, type: 'image/jpeg' });
+                // Same shape as the video, so it fits the player too.
+                const shape = aspect && aspect < 1 ? 9 / 16 : 16 / 9;
+                const small = await resizeToAspect(f, { aspect: shape, long: 1280, type: 'image/jpeg' });
                 const form = new FormData();
                 form.set('kind', 'lesson');
                 form.set('id', lessonId);
@@ -208,7 +217,7 @@ export function CourseCover({
               e.target.value = '';
               if (!f) return;
               run(async () => {
-                const small = await resizeTo16x9(f, { width: 1280, type: 'image/jpeg', quality: 0.8 });
+                const small = await resizeToAspect(f, { aspect: 16 / 9, long: 1280, type: 'image/jpeg', quality: 0.8 });
                 const form = new FormData();
                 form.set('kind', 'course');
                 form.set('id', courseId);

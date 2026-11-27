@@ -42,7 +42,7 @@ export async function loadCourseTree(supabase: SupabaseClient, id: string): Prom
   const { data } = await supabase
     .from('courses')
     .select(
-      'id, title, description, published, require_watch, cover_path, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, script, expectancy, reviewed_at, quizzes(pass_mark, questions), written_prompts(id, prompt, model_answer, max_words, sort_order, send_to_manager), lesson_drafts(pass_mark, questions, written_prompts, expectancy, note, created_at)))'
+      'id, title, description, published, require_watch, cover_path, modules(id, title, intro, sort_order, lessons(id, title, kind, sort_order, bunny_video_id, sample_video_url, duration_seconds, video_aspect, script, expectancy, reviewed_at, quizzes(pass_mark, questions), written_prompts(id, prompt, model_answer, max_words, sort_order, send_to_manager), lesson_drafts(pass_mark, questions, written_prompts, expectancy, note, created_at)))'
     )
     .eq('id', id)
     .maybeSingle();

@@ -1,27 +1,35 @@
 // Shrink and compress a picture in the browser before it is uploaded, so a
-// large phone photo or design file becomes a small, quick-loading 16:9 image.
-// The picture is cropped to fill 16:9 from the centre.
+// large phone photo or design file becomes a small, quick-loading image.
+// The picture is cropped from the centre to the shape asked for: 16:9 by
+// default, or the video's own shape (9:16 for upright phone videos). The
+// longer side ends up at most `long` pixels.
 
-export async function resizeTo16x9(
+export async function resizeToAspect(
   file: File,
-  { width = 1280, type = 'image/jpeg', quality = 0.82 }: { width?: number; type?: 'image/jpeg' | 'image/webp'; quality?: number } = {}
+  {
+    aspect = 16 / 9,
+    long = 1280,
+    type = 'image/jpeg',
+    quality = 0.82,
+  }: { aspect?: number; long?: number; type?: 'image/jpeg' | 'image/webp'; quality?: number } = {}
 ): Promise<File> {
   if (!file.type.startsWith('image/')) throw new Error('Choose a picture (JPG, PNG or WebP).');
   const bitmap = await createImageBitmap(file).catch(() => {
     throw new Error('Could not open that picture. Try a JPG or PNG.');
   });
-  // Crop the source to 16:9 around its centre.
+  // Crop the source to the chosen shape around its centre.
   const srcRatio = bitmap.width / bitmap.height;
   let sw = bitmap.width;
   let sh = bitmap.height;
-  if (srcRatio > 16 / 9) sw = Math.round(sh * (16 / 9));
-  else sh = Math.round(sw * (9 / 16));
+  if (srcRatio > aspect) sw = Math.round(sh * aspect);
+  else sh = Math.round(sw / aspect);
   const sx = Math.round((bitmap.width - sw) / 2);
   const sy = Math.round((bitmap.height - sh) / 2);
 
   // Never enlarge a small picture.
-  const outW = Math.min(width, sw);
-  const outH = Math.round((outW * 9) / 16);
+  const scale = Math.min(1, long / Math.max(sw, sh));
+  const outW = Math.round(sw * scale);
+  const outH = Math.round(sh * scale);
 
   const canvas = document.createElement('canvas');
   canvas.width = outW;

@@ -24,6 +24,7 @@ type Lesson = {
   bunny_video_id: string | null;
   sample_video_url: string | null;
   duration_seconds: number | null;
+  video_aspect?: number | null;
   script: string | null;
   quiz: { pass_mark: number; questions: QuizQuestion[] } | null;
   expectancy: string | null;
@@ -490,6 +491,7 @@ function LessonCard({
             hasVideo={Boolean(lesson.bunny_video_id)}
             current={pictures?.thumbnail ?? null}
             frames={pictures?.frames ?? []}
+            aspect={lesson.video_aspect ?? null}
           />
 
           <BeforeVideo key={`exp-${lesson.expectancy ?? ''}`} lesson={lesson} />
