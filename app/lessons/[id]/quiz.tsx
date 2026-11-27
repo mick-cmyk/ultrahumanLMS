@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { NextButton, type NextStep } from './next-button';
+import { QuestionStep, stepButton as primary } from '@/components/question-step';
 
 type Question = { id: string; text: string; options: string[] };
 type Quiz = { pass_mark: number; questions: Question[] };
@@ -20,10 +21,6 @@ type AttemptResult = {
   pass_mark: number;
   passed: boolean;
 };
-
-const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
-const primary =
-  'inline-flex min-h-12 items-center justify-center rounded-lg bg-brand px-6 py-2 font-semibold text-brand-fg shadow-sm hover:opacity-90 disabled:opacity-50';
 
 // Retrieval practice, one question at a time. The quiz unlocks once the video
 // is watched. Pick an answer and it's marked straight away, with the question
@@ -57,16 +54,10 @@ export function Quiz({
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState('');
 
-  // Move focus to each new question, the feedback and the result, so screen
-  // reader and keyboard users follow along.
-  const feedbackRef = useRef<HTMLDivElement>(null);
-  const questionRef = useRef<HTMLHeadingElement>(null);
+  // The result is focused when it appears, so it's announced.
   const resultRef = useRef<HTMLDivElement>(null);
   const current = order[step];
   const mark = current ? marked[current.id] : undefined;
-  useEffect(() => {
-    if (mark) feedbackRef.current?.focus();
-  }, [mark]);
   useEffect(() => {
     if (result) resultRef.current?.focus();
   }, [result]);
@@ -156,8 +147,6 @@ export function Quiz({
 
   function goNext() {
     setStep((s) => s + 1);
-    // Wait for the next question to render, then focus its heading.
-    requestAnimationFrame(() => questionRef.current?.focus());
   }
 
   function startAgain() {
@@ -166,7 +155,6 @@ export function Quiz({
     setStep(0);
     setTaking(true);
     if (quiz) setOrder(shuffle(quiz.questions));
-    requestAnimationFrame(() => questionRef.current?.focus());
   }
 
   if (!unlocked && !passed) {
@@ -259,102 +247,19 @@ export function Quiz({
 
       {/* One question at a time. */}
       {!result && taking && current && (
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>
-                Question {step + 1} of {total}
-              </span>
-            </div>
-            <div className="mt-2 flex gap-1" aria-hidden="true">
-              {order.map((q, i) => {
-                const m = marked[q.id];
-                return (
-                  <span
-                    key={q.id}
-                    className={`h-1.5 flex-1 rounded-full ${
-                      m ? (m.correct ? 'bg-green-600' : 'bg-red-600') : i === step ? 'bg-brand' : 'bg-gray-200'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          <h3 ref={questionRef} tabIndex={-1} className="text-lg font-semibold outline-none">
-            {current.text}
-          </h3>
-
-          <ul className="space-y-2" aria-label="Answers">
-            {current.options.map((opt, oi) => {
-              const isRight = mark && oi === mark.correct_index;
-              const isWrongPick = mark && oi === mark.chosen && !mark.correct;
-              const look = isRight
-                ? 'border-green-600 bg-green-50 text-green-900'
-                : isWrongPick
-                  ? 'border-red-600 bg-red-50 text-red-800'
-                  : mark
-                    ? 'border-gray-200 opacity-60'
-                    : 'border-gray-300 hover:border-brand hover:bg-brand-soft';
-              return (
-                <li key={oi}>
-                  <button
-                    type="button"
-                    disabled={Boolean(mark) || checking !== null}
-                    aria-pressed={mark ? oi === mark.chosen : undefined}
-                    onClick={() => choose(oi)}
-                    className={`flex min-h-12 w-full items-start gap-3 rounded-lg border-2 p-3 text-left transition-colors disabled:cursor-default ${look}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${
-                        isRight ? 'border-green-600 bg-green-600 text-white' : isWrongPick ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300'
-                      }`}
-                    >
-                      {isRight ? '✓' : isWrongPick ? '✗' : LETTERS[oi]}
-                    </span>
-                    <span className="pt-0.5">
-                      {opt}
-                      {checking === oi && <span className="ml-2 text-sm text-gray-500">Checking…</span>}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {mark && (
-            <div
-              ref={feedbackRef}
-              tabIndex={-1}
-              aria-live="polite"
-              className={`rounded-lg border-l-4 p-4 outline-none ${
-                mark.correct ? 'border-green-600 bg-green-50 text-green-900' : 'border-red-600 bg-red-50 text-red-800'
-              }`}
-            >
-              <p className="font-semibold">{mark.correct ? 'Correct.' : 'Not quite.'}</p>
-              {!mark.correct && (
-                <p className="text-sm">
-                  The answer is {LETTERS[mark.correct_index]}: {current.options[mark.correct_index]}
-                </p>
-              )}
-              {mark.explanation && <p className="mt-2 text-sm">{mark.explanation}</p>}
-            </div>
-          )}
-
-          {error && (
-            <p role="alert" className="text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          {mark && (
-            <button type="button" onClick={last ? finish : goNext} disabled={finishing} className={primary}>
-              {last ? (finishing ? 'Saving…' : 'See my result') : 'Next question'}
-              {!finishing && <span aria-hidden="true">&nbsp;&rarr;</span>}
-            </button>
-          )}
-        </div>
+        <QuestionStep
+          step={step}
+          progress={order.map((q) => (marked[q.id] ? marked[q.id].correct : null))}
+          text={current.text}
+          options={current.options}
+          mark={mark}
+          checking={checking}
+          onChoose={choose}
+          error={error}
+          nextLabel={last ? (finishing ? 'Saving…' : 'See my result') : 'Next question'}
+          onNext={last ? finish : goNext}
+          busy={finishing}
+        />
       )}
     </section>
   );

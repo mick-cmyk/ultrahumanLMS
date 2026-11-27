@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { getBrand } from '@/brands';
+import { QuestionStep, type StepMark } from '@/components/question-step';
 
 const check = getBrand().voice.checkName;
 
@@ -26,6 +27,9 @@ type GradeResult = {
   reason?: string;
 };
 
+// The quick check, one question at a time. Each answer is marked straight
+// away with the question maker's explanation. The database keeps the first
+// answer to each question, and the final marking uses those answers.
 export function RetestPlayer({
   retestId,
   moduleTitle,
@@ -37,17 +41,53 @@ export function RetestPlayer({
   courseTitle: string;
   questions: Question[];
 }) {
-  // The form is replaced by the result; move focus there so it's announced.
   const resultRef = useRef<HTMLDivElement>(null);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [step, setStep] = useState(0);
+  const [marked, setMarked] = useState<Record<string, StepMark>>({});
+  const [checking, setChecking] = useState<number | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const current = questions[step];
+  const mark = current ? marked[current.id] : undefined;
+  const last = step === questions.length - 1;
+
+  useEffect(() => {
+    if (result) resultRef.current?.focus();
+  }, [result]);
+
+  async function choose(oi: number) {
+    if (!current || mark || checking !== null) return;
+    setChecking(oi);
+    setError('');
+    try {
+      const res = await fetch('/api/retest/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retest_id: retestId, question_id: current.id, chosen: oi }),
+      });
+      const body: StepMark & { error?: string } = await res.json();
+      if (!res.ok) {
+        setError(
+          body.error === 'this check is not available'
+            ? `This ${check} isn't open any more. Go back to your training to see where you're up to.`
+            : 'Could not check that answer. Try again.'
+        );
+        return;
+      }
+      setMarked((m) => ({ ...m, [current.id]: body }));
+    } catch {
+      setError('Could not check that answer. Check your connection and try again.');
+    } finally {
+      setChecking(null);
+    }
+  }
+
+  async function finish() {
     setSubmitting(true);
     setError('');
+    const answers = Object.fromEntries(Object.entries(marked).map(([id, m]) => [id, m.chosen]));
     try {
       const res = await fetch('/api/retest', {
         method: 'POST',
@@ -72,40 +112,27 @@ export function RetestPlayer({
     }
   }
 
-  useEffect(() => {
-    if (result) resultRef.current?.focus();
-  }, [result]);
-
   if (result) {
     const missed = result.results.filter((r) => !r.correct);
-    const revisit = Array.from(
-      new Map(missed.map((r) => [r.lesson_id, r.lesson_title])).entries()
-    );
+    const revisit = Array.from(new Map(missed.map((r) => [r.lesson_id, r.lesson_title])).entries());
 
     return (
-      <div
-        ref={resultRef}
-        tabIndex={-1}
-        aria-live="polite"
-        className="mx-auto max-w-lg space-y-4 py-6 outline-none"
-      >
+      <div ref={resultRef} tabIndex={-1} aria-live="polite" className="mx-auto max-w-lg space-y-4 py-6 outline-none">
         <h1 className="text-xl font-semibold">{moduleTitle}</h1>
         {result.passed ? (
-          <div className="space-y-2 rounded border border-green-200 bg-green-50 p-4 text-green-900">
-            <p className="font-medium">
+          <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-4 text-green-900">
+            <p className="text-lg font-semibold">
               Passed: {result.correct_count} of {result.total} right.
             </p>
             <p className="text-sm">
-              That is this module retention-verified. This check came a few days
-              later on purpose, because spacing it out is what makes it stick.
-              Nothing else to do.
+              That is this module retention-verified. This check came a few days later on purpose, because spacing it
+              out is what makes it stick. Nothing else to do.
             </p>
           </div>
         ) : (
-          <div className="space-y-3 rounded border border-amber-200 bg-amber-50 p-4 text-amber-900">
-            <p className="font-medium">
-              You got {result.correct_count} of {result.total}. Worth another
-              quick look.
+          <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <p className="text-lg font-semibold">
+              You got {result.correct_count} of {result.total}. Worth another quick look.
             </p>
             {revisit.length > 0 && (
               <div className="text-sm">
@@ -136,56 +163,33 @@ export function RetestPlayer({
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 py-6">
+    <div className="mx-auto max-w-lg space-y-5 py-6">
       <div>
         <p className="text-sm text-gray-500">{courseTitle}</p>
-        <h1 className="text-xl font-semibold">{moduleTitle}: {check}</h1>
+        <h1 className="text-xl font-semibold">
+          {moduleTitle}: {check}
+        </h1>
         <p className="mt-1 text-gray-600">
-          A few quick questions to lock this in. It takes about two minutes.
+          A few quick questions to lock this in. It takes about two minutes. Your first answer to each one is the one
+          that counts.
         </p>
       </div>
 
-      <form onSubmit={submit} className="space-y-5">
-        {questions.map((q, qi) => (
-          <fieldset key={q.id} className="space-y-2">
-            <legend className="font-medium">
-              {qi + 1}. {q.text}
-            </legend>
-            {q.options.map((opt, oi) => (
-              <label
-                key={oi}
-                className="flex min-h-11 cursor-pointer items-center gap-3 rounded border border-gray-200 p-2"
-              >
-                <input
-                  type="radio"
-                  className="h-5 w-5 flex-none"
-                  name={q.id}
-                  checked={answers[q.id] === oi}
-                  onChange={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
-                />
-                <span>{opt}</span>
-              </label>
-            ))}
-          </fieldset>
-        ))}
-
-        {error && (
-          <p role="alert" className="text-sm text-red-700">
-            {error}
-          </p>
-        )}
-
-        {Object.keys(answers).length < questions.length && (
-          <p className="text-sm text-gray-600">Answer every question to submit.</p>
-        )}
-        <button
-          type="submit"
-          disabled={submitting || Object.keys(answers).length < questions.length}
-          className="rounded bg-brand hover:opacity-90 px-4 py-2 font-medium text-brand-fg disabled:opacity-50"
-        >
-          {submitting ? 'Checking...' : 'Submit answers'}
-        </button>
-      </form>
+      {current && (
+        <QuestionStep
+          step={step}
+          progress={questions.map((q) => (marked[q.id] ? marked[q.id].correct : null))}
+          text={current.text}
+          options={current.options}
+          mark={mark}
+          checking={checking}
+          onChoose={choose}
+          error={error}
+          nextLabel={last ? (submitting ? 'Saving…' : 'See my result') : 'Next question'}
+          onNext={last ? finish : () => setStep((s) => s + 1)}
+          busy={submitting}
+        />
+      )}
     </div>
   );
 }
