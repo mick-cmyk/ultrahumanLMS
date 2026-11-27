@@ -58,9 +58,9 @@ async function main() {
   console.log(`\nClient:   ${brand}\nSite:     ${appUrl}\nVercel:   ${vercel.projectName}\nDatabase: ${ref}\nFrom:     ${from}\nTo:       ${version}`);
   if (!yes) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = (await rl.question('\nType "yes" to update this site: ')).trim().toLowerCase();
+    const answer = (await rl.question('\nType "yes" (or y) to update this site: ')).trim().toLowerCase();
     rl.close();
-    if (answer !== 'yes') die('Nothing changed.');
+    if (answer !== 'yes' && answer !== 'y') die('Nothing changed.');
   }
 
   // ---------------------------------------------------------- code
